@@ -1,4 +1,4 @@
-﻿// ==========================================
+// ==========================================
 // WHATSAPP - PLATAFORMAS STREAMING ARAIZA
 // ==========================================
 
@@ -19,7 +19,7 @@ console.log("==========================================");
 const MONGO_URI = process.env.MONGO_URI;
 
 if (!MONGO_URI) {
-    console.error("❌ No existe MONGO_URI en el archivo .env");
+    console.error("❌ No existe MONGO_URI");
     process.exit(1);
 }
 
@@ -131,7 +131,6 @@ function limpiarTexto(texto) {
         .replace(/\r/g, "")
         .replace(/[ ]+/g, " ")
         .trim();
-
 }
 
 // ==========================================
@@ -145,11 +144,10 @@ function normalizar(texto) {
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "")
         .trim();
-
 }
 
 // ==========================================
-// NORMALIZAR TELEFONO
+// NORMALIZAR TELÉFONO
 // ==========================================
 
 function normalizarTelefono(telefono) {
@@ -157,11 +155,11 @@ function normalizarTelefono(telefono) {
     let numero = String(telefono || "")
         .replace(/\D/g, "");
 
-    // WhatsApp México puede enviar 52 + 10 dígitos
     if (
         numero.startsWith("52") &&
         numero.length >= 12
     ) {
+
         numero = numero.slice(-10);
     }
 
@@ -169,7 +167,7 @@ function normalizarTelefono(telefono) {
 }
 
 // ==========================================
-// ID WHATSAPP
+// CREAR ID WHATSAPP
 // ==========================================
 
 function crearIdWhatsApp(telefono) {
@@ -214,7 +212,7 @@ function buscarEtiqueta(texto, etiquetas) {
 }
 
 // ==========================================
-// EXTRAER TELEFONO
+// EXTRAER TELÉFONO
 // ==========================================
 
 function extraerTelefono(texto) {
@@ -409,9 +407,6 @@ function extraerNombre(texto) {
         }
     }
 
-    // Formato:
-    // Juan, 6621234567, Netflix, Perfil
-
     const primeraLinea =
         texto
             .split("\n")[0]
@@ -539,8 +534,6 @@ function extraerFechas(texto) {
 
     const fechas = [];
 
-    // YYYY-MM-DD
-
     const iso =
         texto.match(
             /\b\d{4}-\d{1,2}-\d{1,2}\b/g
@@ -565,8 +558,6 @@ function extraerFechas(texto) {
 
         });
     }
-
-    // DD/MM/YYYY
 
     const barras =
         texto.match(
@@ -593,8 +584,6 @@ function extraerFechas(texto) {
         });
     }
 
-    // DD-MM-YYYY
-
     const guiones =
         texto.match(
             /\b\d{1,2}-\d{1,2}-\d{4}\b/g
@@ -619,8 +608,6 @@ function extraerFechas(texto) {
 
         });
     }
-
-    // DD DE MES YYYY
 
     const meses =
         "enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre";
@@ -695,9 +682,11 @@ function extraerCliente(texto) {
 
     if (fechas.length >= 2) {
 
-        fechaInicio = fechas[0];
+        fechaInicio =
+            fechas[0];
 
-        fechaVencimiento = fechas[1];
+        fechaVencimiento =
+            fechas[1];
 
     } else {
 
@@ -1105,7 +1094,7 @@ async function comandoRecordatorios(
 }
 
 // ==========================================
-// PROCESAR MENSAJE DEL CLIENTE
+// PROCESAR MENSAJE
 // ==========================================
 
 async function procesarMensaje(
@@ -1116,6 +1105,7 @@ async function procesarMensaje(
     if (
         !message.body
     ) {
+
         return;
     }
 
@@ -1149,10 +1139,6 @@ async function procesarMensaje(
         "=========================================="
     );
 
-    // ==========================================
-    // GUARDAR MENSAJE
-    // ==========================================
-
     try {
 
         const mensaje =
@@ -1177,7 +1163,7 @@ async function procesarMensaje(
     }
 
     // ==========================================
-    // COMANDOS ADMINISTRATIVOS
+    // BUSCAR
     // ==========================================
 
     if (
@@ -1192,6 +1178,10 @@ async function procesarMensaje(
         return;
     }
 
+    // ==========================================
+    // ELIMINAR
+    // ==========================================
+
     if (
         comando.startsWith("elimina ") ||
         comando.startsWith("eliminar ")
@@ -1205,6 +1195,10 @@ async function procesarMensaje(
         return;
     }
 
+    // ==========================================
+    // VENCE MAÑANA
+    // ==========================================
+
     if (
         comando === "vence manana" ||
         comando === "vence mañana"
@@ -1217,6 +1211,10 @@ async function procesarMensaje(
 
         return;
     }
+
+    // ==========================================
+    // RECORDATORIOS
+    // ==========================================
 
     if (
         comando === "enviar recordatorio" ||
@@ -1471,105 +1469,202 @@ async function iniciarWhatsApp() {
     );
 
     try {
-const client = await wppconnect.create({
 
-    session: "sistema",
+        // ==========================================
+        // RUTA DE CHROME
+        // ==========================================
 
-    puppeteerOptions: {
-        executablePath: puppeteer.executablePath(),
-
-        args: [
-            "--no-sandbox",
-            "--disable-setuid-sandbox",
-            "--disable-dev-shm-usage",
-            "--disable-gpu",
-            "--no-zygote"
-        ]
-    },
-
-    catchQR: (base64Qr, asciiQR) => {
+        const chromePath =
+            puppeteer.executablePath();
 
         console.log(
-            "\n========== ESCANEA ESTE QR ==========\n"
+            "🌐 Chrome:",
+            chromePath
         );
 
-        console.log(asciiQR);
+        // ==========================================
+        // CREAR WHATSAPP
+        // ==========================================
+
+        const client =
+            await wppconnect.create({
+
+                session: "sistema",
+
+                autoClose: 0,
+
+                disableWelcome: true,
+
+                headless: true,
+
+                logQR: true,
+
+                puppeteerOptions: {
+
+                    executablePath:
+                        chromePath,
+
+                    args: [
+
+                        "--no-sandbox",
+
+                        "--disable-setuid-sandbox",
+
+                        "--disable-dev-shm-usage",
+
+                        "--disable-gpu",
+
+                        "--no-zygote",
+
+                        "--disable-software-rasterizer",
+
+                        "--disable-background-timer-throttling",
+
+                        "--disable-backgrounding-occluded-windows",
+
+                        "--disable-renderer-backgrounding"
+
+                    ]
+
+                },
+
+                catchQR: (
+                    base64Qr,
+                    asciiQR
+                ) => {
+
+                    console.log("");
+
+                    console.log(
+                        "=========================================="
+                    );
+
+                    console.log(
+                        "       QR DE WHATSAPP DEL SISTEMA"
+                    );
+
+                    console.log(
+                        "=========================================="
+                    );
+
+                    console.log(
+                        asciiQR
+                    );
+
+                    console.log(
+                        "=========================================="
+                    );
+
+                    console.log(
+                        "ESCANEA EL QR DESDE WHATSAPP"
+                    );
+
+                    console.log(
+                        "=========================================="
+                    );
+
+                    console.log("");
+                },
+
+                statusFind: (
+                    statusSession,
+                    session
+                ) => {
+
+                    console.log(
+                        "=========================================="
+                    );
+
+                    console.log(
+                        "Estado:",
+                        statusSession
+                    );
+
+                    console.log(
+                        "Sesión:",
+                        session
+                    );
+
+                    console.log(
+                        "=========================================="
+                    );
+                }
+
+            });
+
+        // ==========================================
+        // WHATSAPP CONECTADO
+        // ==========================================
 
         console.log(
-            "\n=====================================\n"
+            "=========================================="
         );
-    },
-
-    statusFind: (statusSession, session) => {
 
         console.log(
-            "Estado:",
-            statusSession,
-            "| Sesión:",
-            session
+            "📱 WHATSAPP CONECTADO CORRECTAMENTE"
         );
-    },
 
-    headless: true,
+        console.log(
+            "📱 El sistema ya puede recibir mensajes."
+        );
 
-    logQR: true
+        console.log(
+            "📂 MongoDB:",
+            mongoose.connection.name
+        );
 
-});
+        console.log(
+            "=========================================="
+        );
 
-console.log(
-    "📱 El sistema ya puede recibir mensajes."
-);
+        // ==========================================
+        // RECIBIR MENSAJES
+        // ==========================================
 
-console.log(
-    "📂 MongoDB:",
-    mongoose.connection.name
-);
+        client.onMessage(
+            async message => {
 
-console.log(
-    "=========================================="
-);
+                try {
 
-// ==========================================
-// RECIBIR MENSAJES
-// ==========================================
+                    // Ignorar mensajes propios
 
-client.onMessage(
-    async message => {
+                    if (
+                        message.fromMe
+                    ) {
 
-        try {
+                        return;
+                    }
 
-            // Ignorar mensajes propios
-            if (message.fromMe) {
-                return;
+                    await procesarMensaje(
+                        client,
+                        message
+                    );
+
+                } catch (error) {
+
+                    console.error(
+                        "❌ Error procesando mensaje:"
+                    );
+
+                    console.error(
+                        error
+                    );
+                }
             }
+        );
 
-            await procesarMensaje(
-                client,
-                message
-            );
+    } catch (error) {
 
-        } catch (error) {
+        console.error(
+            "❌ Error iniciando WPPConnect:"
+        );
 
-            console.error(
-                "❌ Error procesando mensaje:"
-            );
+        console.error(
+            error
+        );
 
-            console.error(error);
-        }
+        process.exit(1);
     }
-);
-
-} catch (error) {
-
-    console.error(
-        "❌ Error iniciando WPPConnect:"
-    );
-
-    console.error(error);
-
-    process.exit(1);
-}
-
 }
 
 // ==========================================
