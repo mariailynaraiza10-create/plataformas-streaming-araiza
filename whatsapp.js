@@ -4,6 +4,7 @@
 
 const wppconnect = require("@wppconnect-team/wppconnect");
 const mongoose = require("mongoose");
+const puppeteer = require("puppeteer");
 
 require("dotenv").config();
 
@@ -1470,17 +1471,12 @@ async function iniciarWhatsApp() {
     );
 
     try {
-
-        const client =
-            await wppconnect
-.create({
+const client = await wppconnect.create({
 
     session: "sistema",
 
     puppeteerOptions: {
-
-        executablePath:
-            "/opt/render/.cache/puppeteer/chrome/linux-148.0.7778.97/chrome-linux64/chrome",
+        executablePath: puppeteer.executablePath(),
 
         args: [
             "--no-sandbox",
@@ -1489,7 +1485,6 @@ async function iniciarWhatsApp() {
             "--disable-gpu",
             "--no-zygote"
         ]
-
     },
 
     catchQR: (base64Qr, asciiQR) => {
@@ -1519,69 +1514,62 @@ async function iniciarWhatsApp() {
 
     logQR: true
 
-}
-        );
+});
 
-        console.log(
-            "📱 El sistema ya puede recibir mensajes."
-        );
+console.log(
+    "📱 El sistema ya puede recibir mensajes."
+);
 
-        console.log(
-            "📂 MongoDB:",
-            mongoose.connection.name
-        );
+console.log(
+    "📂 MongoDB:",
+    mongoose.connection.name
+);
 
-        console.log(
-            "=========================================="
-        );
+console.log(
+    "=========================================="
+);
 
-        // ==========================================
-        // RECIBIR MENSAJES
-        // ==========================================
+// ==========================================
+// RECIBIR MENSAJES
+// ==========================================
 
-        client.onMessage(
-            async message => {
+client.onMessage(
+    async message => {
 
-                try {
+        try {
 
-                    // Ignorar mensajes propios
-                    if (
-                        message.fromMe
-                    ) {
-
-                        return;
-                    }
-
-                    await procesarMensaje(
-                        client,
-                        message
-                    );
-
-                } catch (error) {
-
-                    console.error(
-                        "❌ Error procesando mensaje:"
-                    );
-
-                    console.error(
-                        error
-                    );
-                }
+            // Ignorar mensajes propios
+            if (message.fromMe) {
+                return;
             }
-        );
 
-    } catch (error) {
+            await procesarMensaje(
+                client,
+                message
+            );
 
-        console.error(
-            "❌ Error iniciando WPPConnect:"
-        );
+        } catch (error) {
 
-        console.error(
-            error
-        );
+            console.error(
+                "❌ Error procesando mensaje:"
+            );
 
-        process.exit(1);
+            console.error(error);
+        }
     }
+);
+
+} catch (error) {
+
+    console.error(
+        "❌ Error iniciando WPPConnect:"
+    );
+
+    console.error(error);
+
+    process.exit(1);
+}
+
 }
 
 // ==========================================
