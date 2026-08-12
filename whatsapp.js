@@ -2,416 +2,45 @@
 // WHATSAPP - PLATAFORMAS STREAMING ARAIZA
 // ==========================================
 
-const express = require("express");
 const wppconnect = require("@wppconnect-team/wppconnect");
 const mongoose = require("mongoose");
 const puppeteer = require("puppeteer");
-
 require("dotenv").config();
 
-// ==========================================
-// SERVIDOR HTTP PARA RENDER
-// ==========================================
-
-const app = express();
-
-const PORT = process.env.PORT || 10000;
-
-app.get("/", (req, res) => {
-    res.send(`
-        <!DOCTYPE html>
-        <html lang="es">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>WhatsApp - Plataformas Streaming Araiza</title>
-            <style>
-                body {
-                    margin: 0;
-                    background: #111;
-                    color: white;
-                    font-family: Arial, sans-serif;
-                    text-align: center;
-                    padding: 40px 20px;
-                }
-
-                h1 {
-                    color: #d4af37;
-                }
-
-                a {
-                    display: inline-block;
-                    margin: 10px;
-                    padding: 15px 25px;
-                    background: #d4af37;
-                    color: #000;
-                    text-decoration: none;
-                    border-radius: 8px;
-                    font-weight: bold;
-                }
-            </style>
-        </head>
-
-        <body>
-
-            <h1>Plataformas Streaming Araiza</h1>
-
-            <p>Sistema de WhatsApp</p>
-
-            <a href="/qr">
-                Ver QR de WhatsApp
-            </a>
-
-            <a href="/estado">
-                Ver estado
-            </a>
-
-        </body>
-        </html>
-    `);
-});
-
+console.log("==========================================");
+console.log("INICIANDO WHATSAPP DEL SISTEMA");
+console.log("==========================================");
 
 // ==========================================
-// VARIABLES QR
+// VARIABLES
 // ==========================================
 
-let ultimoQR = "";
-
-let estadoWhatsApp = "Iniciando";
-
-let sesionWhatsApp = "sistema";
-
-let clienteWhatsApp = null;
-
-
-// ==========================================
-// RUTA QR
-// ==========================================
-
-app.get("/qr", (req, res) => {
-
-    if (!ultimoQR) {
-
-        res.send(`
-            <!DOCTYPE html>
-
-            <html lang="es">
-
-            <head>
-
-                <meta charset="UTF-8">
-
-                <meta
-                    name="viewport"
-                    content="width=device-width, initial-scale=1.0"
-                >
-
-                <title>QR WhatsApp</title>
-
-                <meta
-                    http-equiv="refresh"
-                    content="5"
-                >
-
-                <style>
-
-                    body {
-                        margin: 0;
-                        background: #111;
-                        color: white;
-                        font-family: Arial;
-                        text-align: center;
-                        padding: 40px 20px;
-                    }
-
-                    h1 {
-                        color: #d4af37;
-                    }
-
-                    .cargando {
-                        margin-top: 40px;
-                        font-size: 20px;
-                    }
-
-                </style>
-
-            </head>
-
-            <body>
-
-                <h1>WhatsApp del sistema</h1>
-
-                <div class="cargando">
-                    Esperando que WhatsApp genere el QR...
-                </div>
-
-                <p>
-                    Esta página se actualizará automáticamente.
-                </p>
-
-            </body>
-
-            </html>
-        `);
-
-        return;
-    }
-
-
-    let imagenQR = ultimoQR;
-
-    if (
-        !imagenQR.startsWith("data:image")
-    ) {
-
-        imagenQR =
-            "data:image/png;base64," +
-            imagenQR;
-    }
-
-
-    res.send(`
-        <!DOCTYPE html>
-
-        <html lang="es">
-
-        <head>
-
-            <meta charset="UTF-8">
-
-            <meta
-                name="viewport"
-                content="width=device-width, initial-scale=1.0"
-            >
-
-            <title>Escanear WhatsApp</title>
-
-            <style>
-
-                * {
-                    box-sizing: border-box;
-                }
-
-                body {
-                    margin: 0;
-                    min-height: 100vh;
-                    background: #111;
-                    color: white;
-                    font-family: Arial, sans-serif;
-                    display: flex;
-                    justify-content: center;
-                    align-items: center;
-                    padding: 20px;
-                }
-
-                .contenedor {
-                    max-width: 500px;
-                    width: 100%;
-                    text-align: center;
-                }
-
-                h1 {
-                    color: #d4af37;
-                    margin-bottom: 10px;
-                }
-
-                p {
-                    color: #ddd;
-                }
-
-                .qr {
-                    background: white;
-                    padding: 20px;
-                    border-radius: 15px;
-                    display: inline-block;
-                    margin: 20px 0;
-                }
-
-                .qr img {
-                    width: 300px;
-                    max-width: 80vw;
-                    height: auto;
-                    display: block;
-                }
-
-                .pasos {
-                    background: #1c1c1c;
-                    padding: 20px;
-                    border-radius: 12px;
-                    text-align: left;
-                }
-
-                .boton {
-                    display: inline-block;
-                    margin-top: 20px;
-                    padding: 12px 20px;
-                    background: #d4af37;
-                    color: black;
-                    text-decoration: none;
-                    border-radius: 8px;
-                    font-weight: bold;
-                }
-
-            </style>
-
-        </head>
-
-        <body>
-
-            <div class="contenedor">
-
-                <h1>📱 WhatsApp del sistema</h1>
-
-                <p>
-                    Escanea este código QR desde el teléfono
-                    que utilizarás para el sistema.
-                </p>
-
-                <div class="qr">
-
-                    <img
-                        src="${imagenQR}"
-                        alt="QR de WhatsApp"
-                    >
-
-                </div>
-
-                <div class="pasos">
-
-                    <strong>Cómo vincularlo:</strong>
-
-                    <p>
-                        1. Abre WhatsApp en tu teléfono.
-                    </p>
-
-                    <p>
-                        2. Ve a Configuración.
-                    </p>
-
-                    <p>
-                        3. Entra en Dispositivos vinculados.
-                    </p>
-
-                    <p>
-                        4. Pulsa Vincular un dispositivo.
-                    </p>
-
-                    <p>
-                        5. Escanea este código.
-                    </p>
-
-                </div>
-
-                <a
-                    class="boton"
-                    href="/estado"
-                >
-                    Ver estado
-                </a>
-
-            </div>
-
-        </body>
-
-        </html>
-    `);
-});
-
-
-// ==========================================
-// RUTA ESTADO
-// ==========================================
-
-app.get("/estado", (req, res) => {
-
-    res.json({
-
-        sistema:
-            "Plataformas Streaming Araiza",
-
-        whatsapp:
-            estadoWhatsApp,
-
-        sesion:
-            sesionWhatsApp,
-
-        conectado:
-            !!clienteWhatsApp
-
-    });
-
-});
-
-
-// ==========================================
-// INICIAR SERVIDOR
-// ==========================================
-
-app.listen(
-    PORT,
-    "0.0.0.0",
-    () => {
-
-        console.log(
-            "🌐 Servidor HTTP iniciado en puerto:",
-            PORT
-        );
-
-    }
-);
-
-
-// ==========================================
-// INICIANDO SISTEMA
-// ==========================================
-
-console.log(
-    "=========================================="
-);
-
-console.log(
-    "INICIANDO WHATSAPP DEL SISTEMA"
-);
-
-console.log(
-    "=========================================="
-);
-
-
-// ==========================================
-// MONGO URI
-// ==========================================
-
-const MONGO_URI =
-    process.env.MONGO_URI;
-
+const MONGO_URI = process.env.MONGO_URI;
 
 if (!MONGO_URI) {
-
-    console.error(
-        "❌ No existe MONGO_URI"
-    );
-
+    console.error("❌ No existe MONGO_URI");
     process.exit(1);
 }
 
+// ==========================================
+// CHROME
+// ==========================================
+
+const CHROME_PATH = puppeteer.executablePath();
+
+console.log("🌐 Chrome:", CHROME_PATH);
 
 // ==========================================
-// CONECTAR MONGODB
+// CONEXIÓN MONGODB
 // ==========================================
 
 async function conectarMongoDB() {
 
     try {
 
-        await mongoose.connect(
-            MONGO_URI
-        );
+        await mongoose.connect(MONGO_URI);
 
-        console.log(
-            "✅ MongoDB conectado desde WhatsApp"
-        );
+        console.log("✅ MongoDB conectado desde WhatsApp");
 
         console.log(
             "📂 Base de datos:",
@@ -424,95 +53,84 @@ async function conectarMongoDB() {
             "❌ Error conectando MongoDB:"
         );
 
-        console.error(
-            error
-        );
+        console.error(error);
 
         process.exit(1);
     }
 }
 
-
 // ==========================================
 // MODELO MENSAJES
 // ==========================================
 
-const mensajeSchema =
-    new mongoose.Schema({
+const mensajeSchema = new mongoose.Schema({
 
-        telefono: {
-            type: String,
-            default: ""
-        },
+    telefono: {
+        type: String,
+        default: ""
+    },
 
-        mensaje: {
-            type: String,
-            default: ""
-        },
+    mensaje: {
+        type: String,
+        default: ""
+    },
 
-        fecha: {
-            type: Date,
-            default: Date.now
-        }
+    fecha: {
+        type: Date,
+        default: Date.now
+    }
 
-    });
+});
 
-
-const Mensaje =
-    mongoose.model(
-        "Mensaje",
-        mensajeSchema,
-        "Mensajes"
-    );
-
+const Mensaje = mongoose.model(
+    "Mensaje",
+    mensajeSchema,
+    "Mensajes"
+);
 
 // ==========================================
 // MODELO CLIENTES
 // ==========================================
 
-const clienteSchema =
-    new mongoose.Schema({
+const clienteSchema = new mongoose.Schema({
 
-        nombre: {
-            type: String,
-            default: ""
-        },
+    nombre: {
+        type: String,
+        default: ""
+    },
 
-        telefono: {
-            type: String,
-            default: ""
-        },
+    telefono: {
+        type: String,
+        default: ""
+    },
 
-        servicio: {
-            type: String,
-            default: ""
-        },
+    servicio: {
+        type: String,
+        default: ""
+    },
 
-        tipo: {
-            type: String,
-            default: ""
-        },
+    tipo: {
+        type: String,
+        default: ""
+    },
 
-        fechaInicio: {
-            type: String,
-            default: ""
-        },
+    fechaInicio: {
+        type: String,
+        default: ""
+    },
 
-        fechaVencimiento: {
-            type: String,
-            default: ""
-        }
+    fechaVencimiento: {
+        type: String,
+        default: ""
+    }
 
-    });
+});
 
-
-const Cliente =
-    mongoose.model(
-        "Cliente",
-        clienteSchema,
-        "Clientes"
-    );
-
+const Cliente = mongoose.model(
+    "Cliente",
+    clienteSchema,
+    "Clientes"
+);
 
 // ==========================================
 // LIMPIAR TEXTO
@@ -526,7 +144,6 @@ function limpiarTexto(texto) {
         .trim();
 
 }
-
 
 // ==========================================
 // NORMALIZAR TEXTO
@@ -542,33 +159,26 @@ function normalizar(texto) {
 
 }
 
-
 // ==========================================
 // NORMALIZAR TELEFONO
 // ==========================================
 
 function normalizarTelefono(telefono) {
 
-    let numero =
-        String(telefono || "")
-            .replace(/\D/g, "");
-
+    let numero = String(telefono || "")
+        .replace(/\D/g, "");
 
     if (
         numero.startsWith("52") &&
         numero.length >= 12
     ) {
 
-        numero =
-            numero.slice(-10);
-
+        numero = numero.slice(-10);
     }
-
 
     return numero.slice(-10);
 
 }
-
 
 // ==========================================
 // ID WHATSAPP
@@ -577,50 +187,32 @@ function normalizarTelefono(telefono) {
 function crearIdWhatsApp(telefono) {
 
     const numero =
-        normalizarTelefono(
-            telefono
-        );
+        normalizarTelefono(telefono);
 
-
-    if (
-        numero.length !== 10
-    ) {
-
+    if (numero.length !== 10) {
         return "";
-
     }
-
 
     return numero + "@c.us";
 
 }
 
-
 // ==========================================
 // BUSCAR ETIQUETA
 // ==========================================
 
-function buscarEtiqueta(
-    texto,
-    etiquetas
-) {
+function buscarEtiqueta(texto, etiquetas) {
 
-    for (
-        const etiqueta
-        of etiquetas
-    ) {
+    for (const etiqueta of etiquetas) {
 
-        const regex =
-            new RegExp(
-                etiqueta +
-                "\\s*[:=-]?\\s*([^\\n,]+)",
-                "i"
-            );
-
+        const regex = new RegExp(
+            etiqueta +
+            "\\s*[:=-]?\\s*([^\\n,]+)",
+            "i"
+        );
 
         const encontrado =
             texto.match(regex);
-
 
         if (
             encontrado &&
@@ -628,16 +220,12 @@ function buscarEtiqueta(
         ) {
 
             return encontrado[1].trim();
-
         }
-
     }
-
 
     return "";
 
 }
-
 
 // ==========================================
 // EXTRAER TELEFONO
@@ -659,7 +247,6 @@ function extraerTelefono(texto) {
             ]
         );
 
-
     if (etiquetado) {
 
         const numero =
@@ -667,23 +254,15 @@ function extraerTelefono(texto) {
                 etiquetado
             );
 
-
-        if (
-            numero.length === 10
-        ) {
-
+        if (numero.length === 10) {
             return numero;
-
         }
-
     }
-
 
     const numeros =
         texto.match(
             /\b(?:\+?52\s*)?\d{10}\b/g
         );
-
 
     if (
         numeros &&
@@ -693,14 +272,11 @@ function extraerTelefono(texto) {
         return normalizarTelefono(
             numeros[0]
         );
-
     }
-
 
     return "";
 
 }
-
 
 // ==========================================
 // EXTRAER SERVICIO
@@ -743,10 +319,8 @@ function extraerServicio(texto) {
 
     ];
 
-
     const textoNormalizado =
         normalizar(texto);
-
 
     for (
         const [busqueda, resultado]
@@ -760,16 +334,12 @@ function extraerServicio(texto) {
         ) {
 
             return resultado;
-
         }
-
     }
-
 
     return "";
 
 }
-
 
 // ==========================================
 // EXTRAER TIPO
@@ -780,7 +350,6 @@ function extraerTipo(texto) {
     const normal =
         normalizar(texto);
 
-
     if (
         normal.includes("cuenta completa") ||
         normal.includes("cuenta-completa") ||
@@ -790,23 +359,18 @@ function extraerTipo(texto) {
     ) {
 
         return "Cuenta completa";
-
     }
-
 
     if (
         normal.includes("perfil")
     ) {
 
         return "Perfil";
-
     }
-
 
     return "";
 
 }
-
 
 // ==========================================
 // EXTRAER NOMBRE
@@ -824,10 +388,7 @@ function extraerNombre(texto) {
             ]
         );
 
-
-    if (
-        nombreEtiquetado
-    ) {
+    if (nombreEtiquetado) {
 
         return nombreEtiquetado
             .replace(
@@ -835,9 +396,7 @@ function extraerNombre(texto) {
                 ""
             )
             .trim();
-
     }
-
 
     const patrones = [
 
@@ -851,15 +410,10 @@ function extraerNombre(texto) {
 
     ];
 
-
-    for (
-        const patron
-        of patrones
-    ) {
+    for (const patron of patrones) {
 
         const encontrado =
             texto.match(patron);
-
 
         if (
             encontrado &&
@@ -869,66 +423,44 @@ function extraerNombre(texto) {
             return encontrado[1]
                 .trim()
                 .replace(/[.,;:]+$/, "");
-
         }
-
     }
-
 
     const primeraLinea =
         texto
             .split("\n")[0]
             .trim();
 
-
     const partes =
         primeraLinea
             .split(",")
-            .map(
-                parte => parte.trim()
-            )
+            .map(parte => parte.trim())
             .filter(Boolean);
 
-
-    if (
-        partes.length >= 2
-    ) {
+    if (partes.length >= 2) {
 
         const posibleNombre =
             partes[0];
 
-
         if (
-            !/\d/.test(
-                posibleNombre
-            ) &&
+            !/\d/.test(posibleNombre) &&
             posibleNombre.length >= 2
         ) {
 
             return posibleNombre;
-
         }
-
     }
-
 
     const lineas =
         texto
             .split("\n")
-            .map(
-                linea => linea.trim()
-            )
+            .map(linea => linea.trim())
             .filter(Boolean);
 
-
-    for (
-        const linea
-        of lineas
-    ) {
+    for (const linea of lineas) {
 
         const normal =
             normalizar(linea);
-
 
         if (
             normal.startsWith("nombre") ||
@@ -942,9 +474,7 @@ function extraerNombre(texto) {
         ) {
 
             continue;
-
         }
-
 
         if (
             !/\d{7,}/.test(linea) &&
@@ -963,20 +493,13 @@ function extraerNombre(texto) {
         ) {
 
             return linea
-                .replace(
-                    /[.,;:]+$/,
-                    ""
-                );
-
+                .replace(/[.,;:]+$/, "");
         }
-
     }
-
 
     return "";
 
 }
-
 
 // ==========================================
 // CONVERTIR FECHA ESPAÑOL
@@ -1006,31 +529,24 @@ function convertirFechaEspanol(
 
     };
 
-
     const mesNumero =
         meses[
             normalizar(mes)
         ];
 
-
     if (!mesNumero) {
-
         return "";
-
     }
-
 
     const anioFinal =
         anio ||
         new Date().getFullYear();
-
 
     return (
         `${anioFinal}-${mesNumero}-${String(dia).padStart(2, "0")}`
     );
 
 }
-
 
 // ==========================================
 // EXTRAER FECHAS
@@ -1040,121 +556,83 @@ function extraerFechas(texto) {
 
     const fechas = [];
 
-
     const iso =
         texto.match(
             /\b\d{4}-\d{1,2}-\d{1,2}\b/g
         );
 
-
     if (iso) {
 
-        iso.forEach(
-            fecha => {
+        iso.forEach(fecha => {
 
-                const partes =
-                    fecha.split("-");
+            const partes =
+                fecha.split("-");
 
+            const resultado =
+                `${partes[0]}-${partes[1].padStart(2, "0")}-${partes[2].padStart(2, "0")}`;
 
-                const resultado =
-                    `${partes[0]}-${partes[1].padStart(2, "0")}-${partes[2].padStart(2, "0")}`;
+            if (
+                !fechas.includes(resultado)
+            ) {
 
-
-                if (
-                    !fechas.includes(
-                        resultado
-                    )
-                ) {
-
-                    fechas.push(
-                        resultado
-                    );
-
-                }
-
+                fechas.push(resultado);
             }
-        );
 
+        });
     }
-
 
     const barras =
         texto.match(
             /\b\d{1,2}\/\d{1,2}\/\d{4}\b/g
         );
 
-
     if (barras) {
 
-        barras.forEach(
-            fecha => {
+        barras.forEach(fecha => {
 
-                const partes =
-                    fecha.split("/");
+            const partes =
+                fecha.split("/");
 
+            const resultado =
+                `${partes[2]}-${partes[1].padStart(2, "0")}-${partes[0].padStart(2, "0")}`;
 
-                const resultado =
-                    `${partes[2]}-${partes[1].padStart(2, "0")}-${partes[0].padStart(2, "0")}`;
+            if (
+                !fechas.includes(resultado)
+            ) {
 
-
-                if (
-                    !fechas.includes(
-                        resultado
-                    )
-                ) {
-
-                    fechas.push(
-                        resultado
-                    );
-
-                }
-
+                fechas.push(resultado);
             }
-        );
 
+        });
     }
-
 
     const guiones =
         texto.match(
             /\b\d{1,2}-\d{1,2}-\d{4}\b/g
         );
 
-
     if (guiones) {
 
-        guiones.forEach(
-            fecha => {
+        guiones.forEach(fecha => {
 
-                const partes =
-                    fecha.split("-");
+            const partes =
+                fecha.split("-");
 
+            const resultado =
+                `${partes[2]}-${partes[1].padStart(2, "0")}-${partes[0].padStart(2, "0")}`;
 
-                const resultado =
-                    `${partes[2]}-${partes[1].padStart(2, "0")}-${partes[0].padStart(2, "0")}`;
+            if (
+                !fechas.includes(resultado)
+            ) {
 
-
-                if (
-                    !fechas.includes(
-                        resultado
-                    )
-                ) {
-
-                    fechas.push(
-                        resultado
-                    );
-
-                }
-
+                fechas.push(resultado);
             }
-        );
 
+        });
     }
-
 
     const meses =
         "enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre";
-
 
     const regex =
         new RegExp(
@@ -1162,9 +640,7 @@ function extraerFechas(texto) {
             "gi"
         );
 
-
     let encontrado;
-
 
     while (
         (encontrado = regex.exec(texto)) !== null
@@ -1180,7 +656,6 @@ function extraerFechas(texto) {
             encontrado[3] ||
             new Date().getFullYear();
 
-
         const resultado =
             convertirFechaEspanol(
                 dia,
@@ -1188,27 +663,18 @@ function extraerFechas(texto) {
                 anio
             );
 
-
         if (
             resultado &&
-            !fechas.includes(
-                resultado
-            )
+            !fechas.includes(resultado)
         ) {
 
-            fechas.push(
-                resultado
-            );
-
+            fechas.push(resultado);
         }
-
     }
-
 
     return fechas;
 
 }
-
 
 // ==========================================
 // EXTRAER CLIENTE
@@ -1219,41 +685,29 @@ function extraerCliente(texto) {
     const limpio =
         limpiarTexto(texto);
 
-
     const nombre =
         extraerNombre(limpio);
-
 
     const telefono =
         extraerTelefono(limpio);
 
-
     const servicio =
         extraerServicio(limpio);
-
 
     const tipo =
         extraerTipo(limpio);
 
-
     const fechas =
         extraerFechas(limpio);
 
-
     let fechaInicio = "";
-
     let fechaVencimiento = "";
 
+    if (fechas.length >= 2) {
 
-    if (
-        fechas.length >= 2
-    ) {
+        fechaInicio = fechas[0];
 
-        fechaInicio =
-            fechas[0];
-
-        fechaVencimiento =
-            fechas[1];
+        fechaVencimiento = fechas[1];
 
     } else {
 
@@ -1270,7 +724,6 @@ function extraerCliente(texto) {
                 ]
             );
 
-
         fechaVencimiento =
             buscarEtiqueta(
                 limpio,
@@ -1283,9 +736,7 @@ function extraerCliente(texto) {
                     "expira"
                 ]
             );
-
     }
-
 
     return {
 
@@ -1300,7 +751,6 @@ function extraerCliente(texto) {
 
 }
 
-
 // ==========================================
 // FECHA MAÑANA
 // ==========================================
@@ -1310,7 +760,6 @@ function obtenerFechaManana() {
     const manana =
         new Date();
 
-
     manana.setHours(
         0,
         0,
@@ -1318,35 +767,29 @@ function obtenerFechaManana() {
         0
     );
 
-
     manana.setDate(
         manana.getDate() + 1
     );
 
-
     const anio =
         manana.getFullYear();
-
 
     const mes =
         String(
             manana.getMonth() + 1
         ).padStart(2, "0");
 
-
     const dia =
         String(
             manana.getDate()
         ).padStart(2, "0");
 
-
     return `${anio}-${mes}-${dia}`;
 
 }
 
-
 // ==========================================
-// BUSCAR CLIENTE
+// COMANDO BUSCAR
 // ==========================================
 
 async function comandoBuscar(
@@ -1356,12 +799,12 @@ async function comandoBuscar(
 
     const telefono =
         normalizarTelefono(
-            message.body.replace(
-                /^buscar\s+/i,
-                ""
-            )
+            message.body
+                .replace(
+                    /^buscar\s+/i,
+                    ""
+                )
         );
-
 
     if (
         telefono.length !== 10
@@ -1375,15 +818,12 @@ async function comandoBuscar(
         );
 
         return;
-
     }
-
 
     const cliente =
         await Cliente.findOne({
             telefono
         });
-
 
     if (!cliente) {
 
@@ -1395,9 +835,7 @@ async function comandoBuscar(
         );
 
         return;
-
     }
-
 
     await client.sendText(
         message.from,
@@ -1430,9 +868,8 @@ async function comandoBuscar(
 
 }
 
-
 // ==========================================
-// ELIMINAR CLIENTE
+// COMANDO ELIMINAR
 // ==========================================
 
 async function comandoEliminar(
@@ -1442,12 +879,12 @@ async function comandoEliminar(
 
     const telefono =
         normalizarTelefono(
-            message.body.replace(
-                /^elimina(?:r)?\s+a?\s*/i,
-                ""
-            )
+            message.body
+                .replace(
+                    /^elimina(?:r)?\s+a?\s*/i,
+                    ""
+                )
         );
-
 
     if (
         telefono.length !== 10
@@ -1461,15 +898,12 @@ async function comandoEliminar(
         );
 
         return;
-
     }
-
 
     const cliente =
         await Cliente.findOne({
             telefono
         });
-
 
     if (!cliente) {
 
@@ -1479,14 +913,11 @@ async function comandoEliminar(
         );
 
         return;
-
     }
-
 
     await Cliente.deleteOne({
         _id: cliente._id
     });
-
 
     await client.sendText(
         message.from,
@@ -1505,7 +936,6 @@ async function comandoEliminar(
         cliente.servicio
     );
 
-
     console.log(
         "🗑️ Cliente eliminado:",
         telefono
@@ -1513,9 +943,8 @@ async function comandoEliminar(
 
 }
 
-
 // ==========================================
-// VENCE MAÑANA
+// COMANDO VENCE MAÑANA
 // ==========================================
 
 async function comandoVenceManana(
@@ -1526,13 +955,11 @@ async function comandoVenceManana(
     const fechaManana =
         obtenerFechaManana();
 
-
     const clientes =
         await Cliente.find({
             fechaVencimiento:
                 fechaManana
         });
-
 
     if (
         clientes.length === 0
@@ -1545,13 +972,10 @@ async function comandoVenceManana(
         );
 
         return;
-
     }
-
 
     let respuesta =
         "📅 *CLIENTES QUE VENCEN MAÑANA*\n\n";
-
 
     clientes.forEach(
         (cliente, indice) => {
@@ -1562,14 +986,11 @@ async function comandoVenceManana(
                 `📺 ${cliente.servicio}\n` +
                 `👥 ${cliente.tipo}\n` +
                 `📅 Vence: ${cliente.fechaVencimiento}\n\n`;
-
         }
     );
 
-
     respuesta +=
         `Total: ${clientes.length} cliente(s).`;
-
 
     await client.sendText(
         message.from,
@@ -1578,9 +999,8 @@ async function comandoVenceManana(
 
 }
 
-
 // ==========================================
-// RECORDATORIOS
+// COMANDO RECORDATORIOS
 // ==========================================
 
 async function comandoRecordatorios(
@@ -1591,13 +1011,11 @@ async function comandoRecordatorios(
     const fechaManana =
         obtenerFechaManana();
 
-
     const clientes =
         await Cliente.find({
             fechaVencimiento:
                 fechaManana
         });
-
 
     if (
         clientes.length === 0
@@ -1610,14 +1028,10 @@ async function comandoRecordatorios(
         );
 
         return;
-
     }
 
-
     let enviados = 0;
-
     let errores = 0;
-
 
     for (
         const cliente
@@ -1631,15 +1045,12 @@ async function comandoRecordatorios(
                     cliente.telefono
                 );
 
-
             if (!id) {
 
                 errores++;
 
                 continue;
-
             }
-
 
             const mensaje =
 
@@ -1663,15 +1074,12 @@ async function comandoRecordatorios(
 
                 "¡Gracias por tu preferencia! 🙌";
 
-
             await client.sendText(
                 id,
                 mensaje
             );
 
-
             enviados++;
-
 
             console.log(
                 "✅ Recordatorio enviado:",
@@ -1682,21 +1090,16 @@ async function comandoRecordatorios(
 
             errores++;
 
-
             console.error(
                 "❌ Error enviando recordatorio:",
                 cliente.telefono
             );
 
-
             console.error(
                 error.message
             );
-
         }
-
     }
-
 
     await client.sendText(
         message.from,
@@ -1717,7 +1120,6 @@ async function comandoRecordatorios(
 
 }
 
-
 // ==========================================
 // PROCESAR MENSAJE
 // ==========================================
@@ -1730,21 +1132,16 @@ async function procesarMensaje(
     if (
         !message.body
     ) {
-
         return;
-
     }
-
 
     const texto =
         limpiarTexto(
             message.body
         );
 
-
     const comando =
         normalizar(texto);
-
 
     console.log(
         "=========================================="
@@ -1768,6 +1165,9 @@ async function procesarMensaje(
         "=========================================="
     );
 
+    // ==========================================
+    // GUARDAR MENSAJE
+    // ==========================================
 
     try {
 
@@ -1782,7 +1182,6 @@ async function procesarMensaje(
 
             });
 
-
         await mensaje.save();
 
     } catch (error) {
@@ -1791,9 +1190,11 @@ async function procesarMensaje(
             "❌ Error guardando mensaje:",
             error.message
         );
-
     }
 
+    // ==========================================
+    // COMANDOS
+    // ==========================================
 
     if (
         comando.startsWith("buscar ")
@@ -1805,9 +1206,7 @@ async function procesarMensaje(
         );
 
         return;
-
     }
-
 
     if (
         comando.startsWith("elimina ") ||
@@ -1820,9 +1219,7 @@ async function procesarMensaje(
         );
 
         return;
-
     }
-
 
     if (
         comando === "vence manana" ||
@@ -1835,9 +1232,7 @@ async function procesarMensaje(
         );
 
         return;
-
     }
-
 
     if (
         comando === "enviar recordatorio" ||
@@ -1850,76 +1245,53 @@ async function procesarMensaje(
         );
 
         return;
-
     }
 
+    // ==========================================
+    // EXTRAER CLIENTE
+    // ==========================================
 
     const cliente =
         extraerCliente(texto);
-
 
     console.log(
         "📋 Datos detectados:",
         cliente
     );
 
+    // ==========================================
+    // VALIDAR
+    // ==========================================
 
     const faltantes = [];
 
-
     if (!cliente.nombre) {
-
-        faltantes.push(
-            "nombre"
-        );
-
+        faltantes.push("nombre");
     }
-
 
     if (!cliente.telefono) {
-
-        faltantes.push(
-            "teléfono"
-        );
-
+        faltantes.push("teléfono");
     }
-
 
     if (!cliente.servicio) {
-
-        faltantes.push(
-            "servicio"
-        );
-
+        faltantes.push("servicio");
     }
-
 
     if (!cliente.tipo) {
-
-        faltantes.push(
-            "tipo de cuenta"
-        );
-
+        faltantes.push("tipo de cuenta");
     }
 
-
     if (!cliente.fechaInicio) {
-
         faltantes.push(
             "fecha de contratación"
         );
-
     }
 
-
     if (!cliente.fechaVencimiento) {
-
         faltantes.push(
             "fecha de vencimiento"
         );
-
     }
-
 
     if (
         cliente.telefono.length !== 10
@@ -1934,11 +1306,12 @@ async function procesarMensaje(
             faltantes.push(
                 "teléfono (10 dígitos)"
             );
-
         }
-
     }
 
+    // ==========================================
+    // DATOS INCOMPLETOS
+    // ==========================================
 
     if (
         faltantes.length > 0
@@ -1951,7 +1324,6 @@ async function procesarMensaje(
                         "• " + dato
                 )
                 .join("\n");
-
 
         await client.sendText(
             message.from,
@@ -1985,9 +1357,11 @@ async function procesarMensaje(
         );
 
         return;
-
     }
 
+    // ==========================================
+    // BUSCAR EXISTENTE
+    // ==========================================
 
     const clienteExistente =
         await Cliente.findOne({
@@ -1995,6 +1369,9 @@ async function procesarMensaje(
                 cliente.telefono
         });
 
+    // ==========================================
+    // ACTUALIZAR
+    // ==========================================
 
     if (
         clienteExistente
@@ -2015,9 +1392,7 @@ async function procesarMensaje(
         clienteExistente.fechaVencimiento =
             cliente.fechaVencimiento;
 
-
         await clienteExistente.save();
-
 
         console.log(
             "♻️ Cliente actualizado:",
@@ -2026,22 +1401,24 @@ async function procesarMensaje(
 
     } else {
 
-        const nuevoCliente =
-            new Cliente(
-                cliente
-            );
+        // ==========================================
+        // CREAR
+        // ==========================================
 
+        const nuevoCliente =
+            new Cliente(cliente);
 
         await nuevoCliente.save();
-
 
         console.log(
             "✅ Cliente nuevo guardado:",
             cliente.telefono
         );
-
     }
 
+    // ==========================================
+    // CONFIRMACIÓN
+    // ==========================================
 
     await client.sendText(
         message.from,
@@ -2083,14 +1460,12 @@ async function procesarMensaje(
         "📺✨ *Plataformas Streaming Araiza*"
     );
 
-
     console.log(
         "✅ Confirmación enviada a:",
         message.from
     );
 
 }
-
 
 // ==========================================
 // INICIAR WHATSAPP
@@ -2099,7 +1474,6 @@ async function procesarMensaje(
 async function iniciarWhatsApp() {
 
     await conectarMongoDB();
-
 
     console.log(
         "=========================================="
@@ -2113,41 +1487,81 @@ async function iniciarWhatsApp() {
         "=========================================="
     );
 
-
     try {
 
-        const chromePath =
-            puppeteer.executablePath();
-
-
-        console.log(
-            "🌐 Chrome:",
-            chromePath
-        );
-
-
-        clienteWhatsApp =
+        const client =
             await wppconnect.create({
 
-                session:
-                    "sistema",
+                // ==================================
+                // SESIÓN
+                // ==================================
 
-                autoClose:
-                    0,
+                session: "sistema",
 
-                disableWelcome:
-                    true,
+                // ==================================
+                // ESPERAR LOGIN
+                // ==================================
 
-                headless:
-                    true,
+                waitForLogin: true,
 
-                logQR:
-                    true,
+                // ==================================
+                // NO CERRAR AUTOMÁTICAMENTE
+                // ==================================
+
+                autoClose: 0,
+
+                disableWelcome: true,
+
+                // ==================================
+                // USAR CHROME
+                // ==================================
+
+                useChrome: true,
+
+                // ==================================
+                // ARGUMENTOS DEL NAVEGADOR
+                // ==================================
+
+                browserArgs: [
+
+                    "--no-sandbox",
+
+                    "--disable-setuid-sandbox",
+
+                    "--disable-dev-shm-usage",
+
+                    "--disable-gpu",
+
+                    "--no-zygote",
+
+                    "--disable-software-rasterizer",
+
+                    "--disable-background-networking",
+
+                    "--disable-background-timer-throttling",
+
+                    "--disable-renderer-backgrounding",
+
+                    "--disable-features=Translate,BackForwardCache",
+
+                    "--no-first-run",
+
+                    "--no-default-browser-check",
+
+                    "--disable-extensions"
+
+                ],
+
+                // ==================================
+                // PUPPETEER
+                // ==================================
 
                 puppeteerOptions: {
 
                     executablePath:
-                        chromePath,
+                        CHROME_PATH,
+
+                    headless: true,
 
                     args: [
 
@@ -2169,155 +1583,162 @@ async function iniciarWhatsApp() {
 
                         "--disable-renderer-backgrounding",
 
-                        "--disable-features=TranslateUI",
-
-                        "--disable-extensions",
-
-                        "--disable-sync",
-
                         "--no-first-run",
 
-                        "--no-default-browser-check"
+                        "--no-default-browser-check",
+
+                        "--disable-extensions"
 
                     ]
 
                 },
 
+                // ==================================
+                // QR
+                // ==================================
 
-                catchQR:
-                    (
-                        base64Qr,
+                catchQR: (
+                    base64Qr,
+                    asciiQR,
+                    attempts,
+                    urlCode
+                ) => {
+
+                    console.log("");
+                    console.log(
+                        "=========================================="
+                    );
+
+                    console.log(
+                        "       📱 QR DE WHATSAPP DEL SISTEMA"
+                    );
+
+                    console.log(
+                        "=========================================="
+                    );
+
+                    console.log(
                         asciiQR
-                    ) => {
+                    );
 
-                        console.log(
-                            ""
-                        );
+                    console.log(
+                        "=========================================="
+                    );
 
-                        console.log(
-                            "=========================================="
-                        );
+                    console.log(
+                        "📲 ESCANEA EL QR DESDE WHATSAPP"
+                    );
 
-                        console.log(
-                            "📱 QR DE WHATSAPP DEL SISTEMA"
-                        );
+                    console.log(
+                        "Intento:",
+                        attempts
+                    );
 
-                        console.log(
-                            "=========================================="
-                        );
+                    console.log(
+                        "=========================================="
+                    );
 
+                },
 
-                        ultimoQR =
-                            base64Qr;
+                // ==================================
+                // ESTADO
+                // ==================================
 
+                statusFind: (
+                    statusSession,
+                    session
+                ) => {
 
-                        estadoWhatsApp =
-                            "Esperando escaneo del QR";
+                    console.log(
+                        "=========================================="
+                    );
 
+                    console.log(
+                        "Estado:",
+                        statusSession
+                    );
 
-                        console.log(
-                            "🌐 Abre la ruta /qr para escanearlo."
-                        );
-
-
-                        console.log(
-                            "=========================================="
-                        );
-
-
-                        console.log(
-                            asciiQR
-                        );
-
-
-                        console.log(
-                            "=========================================="
-                        );
-
-                    },
-
-
-                statusFind:
-                    (
-                        statusSession,
+                    console.log(
+                        "Sesión:",
                         session
-                    ) => {
+                    );
 
-                        estadoWhatsApp =
-                            statusSession;
+                    console.log(
+                        "=========================================="
+                    );
 
-                        sesionWhatsApp =
-                            session;
-
-
-                        console.log(
-                            "=========================================="
-                        );
+                    if (
+                        statusSession ===
+                        "qrReadSuccess"
+                    ) {
 
                         console.log(
-                            "Estado:",
-                            statusSession
+                            "✅ QR ESCANEADO CORRECTAMENTE"
                         );
-
-                        console.log(
-                            "Sesión:",
-                            session
-                        );
-
-                        console.log(
-                            "=========================================="
-                        );
-
-
-                        if (
-                            statusSession ===
-                            "isLogged"
-                        ) {
-
-                            estadoWhatsApp =
-                                "WhatsApp conectado";
-
-                            ultimoQR =
-                                "";
-
-                        }
-
-
-                        if (
-                            statusSession ===
-                            "inChat"
-                        ) {
-
-                            estadoWhatsApp =
-                                "WhatsApp conectado";
-
-                            ultimoQR =
-                                "";
-
-                        }
-
-
-                        if (
-                            statusSession ===
-                            "qrReadSuccess"
-                        ) {
-
-                            estadoWhatsApp =
-                                "QR escaneado";
-
-                        }
-
                     }
 
-            });
+                    if (
+                        statusSession ===
+                        "isLogged"
+                    ) {
 
+                        console.log(
+                            "✅ WHATSAPP CONECTADO CORRECTAMENTE"
+                        );
+                    }
+
+                    if (
+                        statusSession ===
+                        "disconnectedMobile"
+                    ) {
+
+                        console.log(
+                            "⚠️ WhatsApp aparece como desconectado del móvil."
+                        );
+                    }
+
+                    if (
+                        statusSession ===
+                        "browserClose"
+                    ) {
+
+                        console.log(
+                            "⚠️ El navegador se cerró."
+                        );
+                    }
+
+                },
+
+                // ==================================
+                // HEADLESS
+                // ==================================
+
+                headless: true,
+
+                // ==================================
+                // QR EN LOG
+                // ==================================
+
+                logQR: true,
+
+                // ==================================
+                // ACTUALIZACIONES
+                // ==================================
+
+                updatesLog: true
+
+            });
 
         console.log(
             "=========================================="
         );
 
         console.log(
-            "📱 WhatsApp iniciado correctamente"
+            "📱 WHATSAPP INICIALIZADO"
+        );
+
+        console.log(
+            "📱 El sistema puede recibir mensajes."
         );
 
         console.log(
@@ -2329,8 +1750,11 @@ async function iniciarWhatsApp() {
             "=========================================="
         );
 
+        // ==========================================
+        // RECIBIR MENSAJES
+        // ==========================================
 
-        clienteWhatsApp.onMessage(
+        client.onMessage(
             async message => {
 
                 try {
@@ -2340,15 +1764,12 @@ async function iniciarWhatsApp() {
                     ) {
 
                         return;
-
                     }
 
-
                     await procesarMensaje(
-                        clienteWhatsApp,
+                        client,
                         message
                     );
-
 
                 } catch (error) {
 
@@ -2359,12 +1780,10 @@ async function iniciarWhatsApp() {
                     console.error(
                         error
                     );
-
                 }
 
             }
         );
-
 
     } catch (error) {
 
@@ -2376,18 +1795,13 @@ async function iniciarWhatsApp() {
             error
         );
 
-
-        estadoWhatsApp =
-            "Error";
-
-
-        clienteWhatsApp =
-            null;
+        // No cerrar MongoDB aquí inmediatamente.
+        // Permitimos que Render mantenga el proceso
+        // para poder revisar los logs.
 
     }
 
 }
-
 
 // ==========================================
 // INICIAR
@@ -2395,104 +1809,95 @@ async function iniciarWhatsApp() {
 
 iniciarWhatsApp();
 
+// ==========================================
+// CIERRE SEGURO
+// ==========================================
+
+async function cerrarSistema() {
+
+    console.log(
+        "\n=========================================="
+    );
+
+    console.log(
+        "CERRANDO SISTEMA..."
+    );
+
+    console.log(
+        "=========================================="
+    );
+
+    try {
+
+        await mongoose.connection.close();
+
+        console.log(
+            "✅ MongoDB cerrado correctamente."
+        );
+
+    } catch (error) {
+
+        console.error(
+            "❌ Error cerrando MongoDB:"
+        );
+
+        console.error(
+            error.message
+        );
+    }
+
+    process.exit(0);
+
+}
 
 // ==========================================
-// CIERRE SIGINT
+// SIGINT
 // ==========================================
 
 process.on(
     "SIGINT",
-    async () => {
-
-        console.log(
-            "\nCerrando WhatsApp..."
-        );
-
-
-        try {
-
-            if (
-                clienteWhatsApp
-            ) {
-
-                await clienteWhatsApp.close();
-
-            }
-
-        } catch (error) {
-
-            console.error(
-                error.message
-            );
-
-        }
-
-
-        try {
-
-            await mongoose.connection.close();
-
-        } catch (error) {
-
-            console.error(
-                error.message
-            );
-
-        }
-
-
-        process.exit(0);
-
-    }
+    cerrarSistema
 );
 
-
 // ==========================================
-// CIERRE SIGTERM
+// SIGTERM
 // ==========================================
 
 process.on(
     "SIGTERM",
-    async () => {
+    cerrarSistema
+);
 
-        console.log(
-            "\nCerrando sistema..."
+// ==========================================
+// ERRORES NO CONTROLADOS
+// ==========================================
+
+process.on(
+    "unhandledRejection",
+    error => {
+
+        console.error(
+            "❌ UNHANDLED REJECTION:"
         );
 
+        console.error(
+            error
+        );
 
-        try {
+    }
+);
 
-            if (
-                clienteWhatsApp
-            ) {
+process.on(
+    "uncaughtException",
+    error => {
 
-                await clienteWhatsApp.close();
+        console.error(
+            "❌ UNCAUGHT EXCEPTION:"
+        );
 
-            }
-
-        } catch (error) {
-
-            console.error(
-                error.message
-            );
-
-        }
-
-
-        try {
-
-            await mongoose.connection.close();
-
-        } catch (error) {
-
-            console.error(
-                error.message
-            );
-
-        }
-
-
-        process.exit(0);
+        console.error(
+            error
+        );
 
     }
 );
