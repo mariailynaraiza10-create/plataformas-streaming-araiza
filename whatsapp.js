@@ -1,30 +1,58 @@
-﻿const wppconnect = require("@wppconnect-team/wppconnect");
+﻿// ==========================================
+// WHATSAPP - PLATAFORMAS STREAMING ARAIZA
+// ==========================================
+
+const wppconnect = require("@wppconnect-team/wppconnect");
 const mongoose = require("mongoose");
 
 require("dotenv").config();
 
-console.log("Iniciando WhatsApp del sistema...");
+console.log("==========================================");
+console.log("INICIANDO WHATSAPP DEL SISTEMA");
+console.log("==========================================");
 
 // ==========================================
-// CONEXIÃ“N A MONGODB
+// VARIABLES
 // ==========================================
 
-mongoose
-    .connect(process.env.MONGO_URI)
-    .then(() => {
-        console.log("MongoDB conectado desde WhatsApp");
-        console.log("Base de datos:", mongoose.connection.name);
-    })
-    .catch((error) => {
-        console.error("Error conectando MongoDB:");
+const MONGO_URI = process.env.MONGO_URI;
+
+if (!MONGO_URI) {
+    console.error("❌ No existe MONGO_URI en el archivo .env");
+    process.exit(1);
+}
+
+// ==========================================
+// CONEXIÓN MONGODB
+// ==========================================
+
+async function conectarMongoDB() {
+
+    try {
+
+        await mongoose.connect(MONGO_URI);
+
+        console.log("✅ MongoDB conectado desde WhatsApp");
+        console.log(
+            "📂 Base de datos:",
+            mongoose.connection.name
+        );
+
+    } catch (error) {
+
+        console.error("❌ Error conectando MongoDB:");
         console.error(error);
-    });
+
+        process.exit(1);
+    }
+}
 
 // ==========================================
-// MODELO DE MENSAJES
+// MODELO MENSAJES
 // ==========================================
 
 const mensajeSchema = new mongoose.Schema({
+
     telefono: {
         type: String,
         default: ""
@@ -39,6 +67,7 @@ const mensajeSchema = new mongoose.Schema({
         type: Date,
         default: Date.now
     }
+
 });
 
 const Mensaje = mongoose.model(
@@ -48,10 +77,11 @@ const Mensaje = mongoose.model(
 );
 
 // ==========================================
-// MODELO DE CLIENTES
+// MODELO CLIENTES
 // ==========================================
 
 const clienteSchema = new mongoose.Schema({
+
     nombre: {
         type: String,
         default: ""
@@ -81,6 +111,7 @@ const clienteSchema = new mongoose.Schema({
         type: String,
         default: ""
     }
+
 });
 
 const Cliente = mongoose.model(
@@ -90,15 +121,16 @@ const Cliente = mongoose.model(
 );
 
 // ==========================================
-// FUNCIONES PARA LIMPIAR TEXTO
+// LIMPIAR TEXTO
 // ==========================================
 
 function limpiarTexto(texto) {
 
-    return texto
+    return String(texto || "")
         .replace(/\r/g, "")
         .replace(/[ ]+/g, " ")
         .trim();
+
 }
 
 // ==========================================
@@ -107,15 +139,52 @@ function limpiarTexto(texto) {
 
 function normalizar(texto) {
 
-    return texto
+    return limpiarTexto(texto)
         .toLowerCase()
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "")
         .trim();
+
 }
 
 // ==========================================
-// BUSCAR DATO DESPUÃ‰S DE UNA ETIQUETA
+// NORMALIZAR TELEFONO
+// ==========================================
+
+function normalizarTelefono(telefono) {
+
+    let numero = String(telefono || "")
+        .replace(/\D/g, "");
+
+    // WhatsApp México puede enviar 52 + 10 dígitos
+    if (
+        numero.startsWith("52") &&
+        numero.length >= 12
+    ) {
+        numero = numero.slice(-10);
+    }
+
+    return numero.slice(-10);
+}
+
+// ==========================================
+// ID WHATSAPP
+// ==========================================
+
+function crearIdWhatsApp(telefono) {
+
+    const numero =
+        normalizarTelefono(telefono);
+
+    if (numero.length !== 10) {
+        return "";
+    }
+
+    return numero + "@c.us";
+}
+
+// ==========================================
+// BUSCAR ETIQUETA
 // ==========================================
 
 function buscarEtiqueta(texto, etiquetas) {
@@ -123,13 +192,18 @@ function buscarEtiqueta(texto, etiquetas) {
     for (const etiqueta of etiquetas) {
 
         const regex = new RegExp(
-            etiqueta + "\\s*[:=-]?\\s*([^\\n,]+)",
+            etiqueta +
+            "\\s*[:=-]?\\s*([^\\n,]+)",
             "i"
         );
 
-        const encontrado = texto.match(regex);
+        const encontrado =
+            texto.match(regex);
 
-        if (encontrado && encontrado[1]) {
+        if (
+            encontrado &&
+            encontrado[1]
+        ) {
 
             return encontrado[1].trim();
         }
@@ -137,42 +211,56 @@ function buscarEtiqueta(texto, etiquetas) {
 
     return "";
 }
+
 // ==========================================
-// EXTRAER TELÃ‰FONO
+// EXTRAER TELEFONO
 // ==========================================
 
 function extraerTelefono(texto) {
 
-    const etiquetas = [
-        "telefono",
-        "tel",
-        "celular",
-        "numero",
-        "numero de telefono",
-        "numero celular",
-        "contacto"
-    ];
-
-    const etiquetado = buscarEtiqueta(texto, etiquetas);
+    const etiquetado =
+        buscarEtiqueta(
+            texto,
+            [
+                "telefono",
+                "tel",
+                "celular",
+                "numero",
+                "numero de telefono",
+                "numero celular",
+                "contacto"
+            ]
+        );
 
     if (etiquetado) {
 
-        const numero = etiquetado.replace(/\D/g, "");
+        const numero =
+            normalizarTelefono(
+                etiquetado
+            );
 
-        if (numero.length >= 10) {
-            return numero.slice(-10);
+        if (numero.length === 10) {
+            return numero;
         }
     }
 
-    const numeros = texto.match(/\b\d{10,15}\b/g);
+    const numeros =
+        texto.match(
+            /\b(?:\+?52\s*)?\d{10}\b/g
+        );
 
-    if (numeros && numeros.length > 0) {
-        return numeros[0].slice(-10);
+    if (
+        numeros &&
+        numeros.length > 0
+    ) {
+
+        return normalizarTelefono(
+            numeros[0]
+        );
     }
 
     return "";
 }
-
 
 // ==========================================
 // EXTRAER SERVICIO
@@ -181,36 +269,54 @@ function extraerTelefono(texto) {
 function extraerServicio(texto) {
 
     const servicios = [
+
         ["netflix", "Netflix"],
+
         ["disney+", "Disney+"],
         ["disney plus", "Disney+"],
         ["disney", "Disney+"],
-        ["max", "Max"],
-        ["hbo max", "Max"],
+
         ["prime video", "Prime Video"],
         ["prime", "Prime Video"],
+
         ["crunchyroll", "Crunchyroll"],
-        ["vix", "Vix"],
+
         ["paramount+", "Paramount+"],
         ["paramount", "Paramount+"],
+
+        ["spotify", "Spotify"],
+
         ["apple tv", "Apple TV"],
         ["apple", "Apple TV"],
+
         ["iptv", "IPTV"],
+
         ["fox one", "Fox One"],
         ["fox", "Fox One"],
+
         ["canva", "Canva"],
-        ["spotify", "Spotify"]
+
+        ["vix", "ViX"],
+
+        ["hbo max", "Max"],
+        ["max", "Max"]
+
     ];
 
-    const textoNormalizado = normalizar(texto);
+    const textoNormalizado =
+        normalizar(texto);
 
-    for (const [busqueda, resultado] of servicios) {
+    for (
+        const [busqueda, resultado]
+        of servicios
+    ) {
 
         if (
             textoNormalizado.includes(
                 normalizar(busqueda)
             )
         ) {
+
             return resultado;
         }
     }
@@ -218,14 +324,14 @@ function extraerServicio(texto) {
     return "";
 }
 
-
 // ==========================================
-// EXTRAER TIPO
+// EXTRAER TIPO DE CUENTA
 // ==========================================
 
 function extraerTipo(texto) {
 
-    const normal = normalizar(texto);
+    const normal =
+        normalizar(texto);
 
     if (
         normal.includes("cuenta completa") ||
@@ -234,13 +340,14 @@ function extraerTipo(texto) {
         normal.includes("completo") ||
         normal.includes("full")
     ) {
+
         return "Cuenta completa";
     }
 
     if (
-        normal.includes("perfil") ||
-        normal.includes("perfill")
+        normal.includes("perfil")
     ) {
+
         return "Perfil";
     }
 
@@ -252,14 +359,6 @@ function extraerTipo(texto) {
 // ==========================================
 
 function extraerNombre(texto) {
-
-    // ==========================================
-    // 1. NOMBRE CON ETIQUETA
-    // Ejemplos:
-    // Nombre: Pedro
-    // Cliente: Pedro
-    // Usuario: Pedro
-    // ==========================================
 
     const nombreEtiquetado =
         buscarEtiqueta(
@@ -273,46 +372,35 @@ function extraerNombre(texto) {
 
     if (nombreEtiquetado) {
 
-        let nombre = nombreEtiquetado.trim();
-
-        nombre = nombre
-            .replace(/^(se llama|me llamo|soy|es)\s+/i, "")
+        return nombreEtiquetado
+            .replace(
+                /^(se llama|me llamo|soy|es)\s+/i,
+                ""
+            )
             .trim();
-
-        return nombre;
     }
 
+    const patrones = [
 
-    // ==========================================
-    // 2. FRASES NATURALES
-    // Ejemplos:
-    // Se llama Pedro
-    // Me llamo Pedro
-    // Soy Pedro
-    // El cliente se llama Pedro
-    // Mi nombre es Pedro
-    // ==========================================
+        /(?:^|\s)se llama\s+([a-záéíóúüñ]+(?:\s+[a-záéíóúüñ]+){0,3})/i,
 
-    const patronesNombre = [
+        /(?:^|\s)me llamo\s+([a-záéíóúüñ]+(?:\s+[a-záéíóúüñ]+){0,3})/i,
 
-        /(?:^|\s)se llama\s+([a-zÃ¡Ã©Ã­Ã³ÃºÃ¼Ã±]+(?:\s+[a-zÃ¡Ã©Ã­Ã³ÃºÃ¼Ã±]+){0,3})/i,
+        /(?:^|\s)mi nombre es\s+([a-záéíóúüñ]+(?:\s+[a-záéíóúüñ]+){0,3})/i,
 
-        /(?:^|\s)me llamo\s+([a-zÃ¡Ã©Ã­Ã³ÃºÃ¼Ã±]+(?:\s+[a-zÃ¡Ã©Ã­Ã³ÃºÃ¼Ã±]+){0,3})/i,
-
-        /(?:^|\s)mi nombre es\s+([a-zÃ¡Ã©Ã­Ã³ÃºÃ¼Ã±]+(?:\s+[a-zÃ¡Ã©Ã­Ã³ÃºÃ¼Ã±]+){0,3})/i,
-
-        /(?:^|\s)soy\s+([a-zÃ¡Ã©Ã­Ã³ÃºÃ¼Ã±]+(?:\s+[a-zÃ¡Ã©Ã­Ã³ÃºÃ¼Ã±]+){0,3})/i,
-
-        /(?:^|\s)nombre es\s+([a-zÃ¡Ã©Ã­Ã³ÃºÃ¼Ã±]+(?:\s+[a-zÃ¡Ã©Ã­Ã³ÃºÃ¼Ã±]+){0,3})/i
+        /(?:^|\s)soy\s+([a-záéíóúüñ]+(?:\s+[a-záéíóúüñ]+){0,3})/i
 
     ];
 
-    for (const patron of patronesNombre) {
+    for (const patron of patrones) {
 
         const encontrado =
             texto.match(patron);
 
-        if (encontrado && encontrado[1]) {
+        if (
+            encontrado &&
+            encontrado[1]
+        ) {
 
             return encontrado[1]
                 .trim()
@@ -320,12 +408,8 @@ function extraerNombre(texto) {
         }
     }
 
-
-    // ==========================================
-    // 3. FORMATO CON COMAS
-    // Ejemplo:
+    // Formato:
     // Juan, 6621234567, Netflix, Perfil
-    // ==========================================
 
     const primeraLinea =
         texto
@@ -345,20 +429,12 @@ function extraerNombre(texto) {
 
         if (
             !/\d/.test(posibleNombre) &&
-            posibleNombre.length >= 2 &&
-            !normalizar(posibleNombre).includes("se llama") &&
-            !normalizar(posibleNombre).includes("me llamo") &&
-            !normalizar(posibleNombre).includes("mi nombre")
+            posibleNombre.length >= 2
         ) {
 
             return posibleNombre;
         }
     }
-
-
-    // ==========================================
-    // 4. BUSCAR UNA LÃNEA QUE PAREZCA NOMBRE
-    // ==========================================
 
     const lineas =
         texto
@@ -396,12 +472,11 @@ function extraerNombre(texto) {
             !normal.includes("paramount") &&
             !normal.includes("iptv") &&
             !normal.includes("canva") &&
-            !normal.includes("apple tv") &&
-            !normal.includes("fox one")
+            !normal.includes("apple") &&
+            !normal.includes("fox")
         ) {
 
             return linea
-                .trim()
                 .replace(/[.,;:]+$/, "");
         }
     }
@@ -410,10 +485,14 @@ function extraerNombre(texto) {
 }
 
 // ==========================================
-// CONVERTIR FECHA EN ESPAÃ‘OL
+// CONVERTIR FECHA ESPAÑOL
 // ==========================================
 
-function convertirFechaEspanol(dia, mes, anio) {
+function convertirFechaEspanol(
+    dia,
+    mes,
+    anio
+) {
 
     const meses = {
 
@@ -434,20 +513,22 @@ function convertirFechaEspanol(dia, mes, anio) {
     };
 
     const mesNumero =
-        meses[normalizar(mes)];
+        meses[
+            normalizar(mes)
+        ];
 
     if (!mesNumero) {
         return "";
     }
 
     const anioFinal =
-        anio || new Date().getFullYear();
+        anio ||
+        new Date().getFullYear();
 
     return (
         `${anioFinal}-${mesNumero}-${String(dia).padStart(2, "0")}`
     );
 }
-
 
 // ==========================================
 // EXTRAER FECHAS
@@ -457,10 +538,7 @@ function extraerFechas(texto) {
 
     const fechas = [];
 
-
-    // ==========================================
     // YYYY-MM-DD
-    // ==========================================
 
     const iso =
         texto.match(
@@ -471,22 +549,23 @@ function extraerFechas(texto) {
 
         iso.forEach(fecha => {
 
-            const partes = fecha.split("-");
+            const partes =
+                fecha.split("-");
 
             const resultado =
                 `${partes[0]}-${partes[1].padStart(2, "0")}-${partes[2].padStart(2, "0")}`;
 
-            if (!fechas.includes(resultado)) {
+            if (
+                !fechas.includes(resultado)
+            ) {
+
                 fechas.push(resultado);
             }
 
         });
     }
 
-
-    // ==========================================
     // DD/MM/YYYY
-    // ==========================================
 
     const barras =
         texto.match(
@@ -497,22 +576,23 @@ function extraerFechas(texto) {
 
         barras.forEach(fecha => {
 
-            const partes = fecha.split("/");
+            const partes =
+                fecha.split("/");
 
             const resultado =
                 `${partes[2]}-${partes[1].padStart(2, "0")}-${partes[0].padStart(2, "0")}`;
 
-            if (!fechas.includes(resultado)) {
+            if (
+                !fechas.includes(resultado)
+            ) {
+
                 fechas.push(resultado);
             }
 
         });
     }
 
-
-    // ==========================================
     // DD-MM-YYYY
-    // ==========================================
 
     const guiones =
         texto.match(
@@ -523,84 +603,70 @@ function extraerFechas(texto) {
 
         guiones.forEach(fecha => {
 
-            const partes = fecha.split("-");
+            const partes =
+                fecha.split("-");
 
             const resultado =
                 `${partes[2]}-${partes[1].padStart(2, "0")}-${partes[0].padStart(2, "0")}`;
 
-            if (!fechas.includes(resultado)) {
+            if (
+                !fechas.includes(resultado)
+            ) {
+
                 fechas.push(resultado);
             }
 
         });
     }
 
-
-    // ==========================================
-    // DD DE MES
-    // ==========================================
+    // DD DE MES YYYY
 
     const meses =
         "enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre";
 
-    const fechasEspanol =
-        texto.match(
-            new RegExp(
-                `\\b\\d{1,2}\\s+(?:de\\s+)?(${meses})(?:\\s+(?:de|del)?\\s*\\d{4})?\\b`,
-                "gi"
-            )
+    const regex =
+        new RegExp(
+            `\\b(\\d{1,2})\\s+(?:de\\s+)?(${meses})(?:\\s+(?:de|del)?\\s*(\\d{4}))?\\b`,
+            "gi"
         );
 
-    if (fechasEspanol) {
+    let encontrado;
 
-        fechasEspanol.forEach(fechaTexto => {
+    while (
+        (encontrado = regex.exec(texto)) !== null
+    ) {
 
-            const coincidencia =
-                fechaTexto.match(
-                    new RegExp(
-                        `(\\d{1,2})\\s+(?:de\\s+)?(${meses})(?:\\s+(?:de|del)?\\s*(\\d{4}))?`,
-                        "i"
-                    )
-                );
+        const dia =
+            encontrado[1];
 
-            if (!coincidencia) {
-                return;
-            }
+        const mes =
+            encontrado[2];
 
-            const dia =
-                coincidencia[1];
+        const anio =
+            encontrado[3] ||
+            new Date().getFullYear();
 
-            const mes =
-                coincidencia[2];
+        const resultado =
+            convertirFechaEspanol(
+                dia,
+                mes,
+                anio
+            );
 
-            const anio =
-                coincidencia[3] ||
-                new Date().getFullYear();
+        if (
+            resultado &&
+            !fechas.includes(resultado)
+        ) {
 
-            const resultado =
-                convertirFechaEspanol(
-                    dia,
-                    mes,
-                    anio
-                );
-
-            if (
-                resultado &&
-                !fechas.includes(resultado)
-            ) {
-                fechas.push(resultado);
-            }
-
-        });
+            fechas.push(resultado);
+        }
     }
-
 
     return fechas;
 }
 
-
 // ==========================================
-// EXTRAER DATOS DEL CLIENTE
+// EXTRAER CLIENTE
 // ==========================================
 
 function extraerCliente(texto) {
@@ -626,21 +692,13 @@ function extraerCliente(texto) {
     let fechaInicio = "";
     let fechaVencimiento = "";
 
-
-    // ==========================================
-    // SI ENCONTRÃ“ DOS FECHAS
-    // ==========================================
-
     if (fechas.length >= 2) {
 
         fechaInicio = fechas[0];
+
         fechaVencimiento = fechas[1];
 
     } else {
-
-        // ==========================================
-        // BUSCAR FECHAS ETIQUETADAS
-        // ==========================================
 
         fechaInicio =
             buscarEtiqueta(
@@ -669,7 +727,6 @@ function extraerCliente(texto) {
             );
     }
 
-
     return {
 
         nombre,
@@ -681,154 +738,64 @@ function extraerCliente(texto) {
 
     };
 }
+
 // ==========================================
-// INICIAR WHATSAPP
+// FECHA DE MAÑANA
 // ==========================================
 
-wppconnect
-    .create({
+function obtenerFechaManana() {
 
-        session: "sistema",
+    const manana =
+        new Date();
 
-        catchQR: (base64Qr, asciiQR) => {
+    manana.setHours(
+        0,
+        0,
+        0,
+        0
+    );
 
-            console.log(
-                "\n========== ESCANEA ESTE QR ==========\n"
-            );
+    manana.setDate(
+        manana.getDate() + 1
+    );
 
-            console.log(asciiQR);
+    const anio =
+        manana.getFullYear();
 
-            console.log(
-                "\n=====================================\n"
-            );
-        },
+    const mes =
+        String(
+            manana.getMonth() + 1
+        ).padStart(2, "0");
 
-        statusFind: (statusSession, session) => {
+    const dia =
+        String(
+            manana.getDate()
+        ).padStart(2, "0");
 
-            console.log(
-                "Estado:",
-                statusSession,
-                "| SesiÃ³n:",
-                session
-            );
-        },
+    return `${anio}-${mes}-${dia}`;
+}
 
-        headless: true,
-        logQR: true
-    })
+// ==========================================
+// COMANDO BUSCAR
+// ==========================================
 
-    .then((client) => {
+async function comandoBuscar(
+    client,
+    message
+) {
 
-        console.log(
-            "WhatsApp conectado correctamente."
+    const telefono =
+        normalizarTelefono(
+            message.body
+                .replace(
+                    /^buscar\s+/i,
+                    ""
+                )
         );
 
-        // ==========================================
-        // RECIBIR MENSAJES
-        // ==========================================
-
-        client.onMessage(async (message) => {
-
-            try {
-
-                // ==========================================
-                // IGNORAR MENSAJES SIN TEXTO
-                // ==========================================
-
-                if (!message.body) {
-
-                    return;
-                }
-console.log("==========================================");
-console.log("DATOS COMPLETOS DEL MENSAJE");
-console.log("==========================================");
-
-console.log(
-    JSON.stringify(
-        message,
-        null,
-        2
-    )
-);
-
-console.log("==========================================");
-console.log("FROM:");
-console.log(message.from);
-
-console.log("AUTHOR:");
-console.log(message.author);
-
-console.log("CHAT ID:");
-console.log(
-    message.chatId
-);
-
-console.log("SENDER:");
-console.log(
-    message.sender
-);
-
-console.log("==========================================");
-
-                console.log(
-                    "\n===== MENSAJE RECIBIDO ====="
-                );
-
-                console.log(
-                    "De:",
-                    message.from
-                );
-
-                console.log(
-                    "Mensaje:",
-                    message.body
-                );
-
-                console.log(
-                    "============================\n"
-                );
-
-                // ==========================================
-                // GUARDAR MENSAJE ORIGINAL
-                // ==========================================
-
-                const nuevoMensaje =
-                    new Mensaje({
-
-                        telefono:
-                            message.from,
-
-                        mensaje:
-                            message.body
-
-                    });
-
-                await nuevoMensaje.save();
-
-                console.log(
-                    "Mensaje guardado en MongoDB."
-);
- // ==========================================
-// COMANDOS DEL SISTEMA
-// ==========================================
-
-const textoComando = normalizar(message.body);
-
-// ==========================================
-// COMANDO: BUSCAR CLIENTE
-// Ejemplo:
-// buscar 6629876543
-// ==========================================
-
-if (textoComando.startsWith("buscar ")) {
-
-    const telefonoBuscar =
-        message.body
-            .replace(/^buscar\s+/i, "")
-            .replace(/\D/g, "")
-            .slice(-10);
-
-    if (telefonoBuscar.length !== 10) {
+    if (
+        telefono.length !== 10
+    ) {
 
         await client.sendText(
             message.from,
@@ -840,18 +807,18 @@ if (textoComando.startsWith("buscar ")) {
         return;
     }
 
-    const clienteEncontrado =
+    const cliente =
         await Cliente.findOne({
-            telefono: telefonoBuscar
+            telefono
         });
 
-    if (!clienteEncontrado) {
+    if (!cliente) {
 
         await client.sendText(
             message.from,
             "❌ *CLIENTE NO ENCONTRADO*\n\n" +
             "No existe ningún cliente registrado con el teléfono:\n" +
-            telefonoBuscar
+            telefono
         );
 
         return;
@@ -863,54 +830,51 @@ if (textoComando.startsWith("buscar ")) {
         "🔎 *CLIENTE ENCONTRADO*\n\n" +
 
         "👤 Nombre: " +
-        clienteEncontrado.nombre +
+        cliente.nombre +
         "\n" +
 
         "📱 Teléfono: " +
-        clienteEncontrado.telefono +
+        cliente.telefono +
         "\n" +
 
         "📺 Servicio: " +
-        clienteEncontrado.servicio +
+        cliente.servicio +
         "\n" +
 
         "👥 Tipo: " +
-        clienteEncontrado.tipo +
+        cliente.tipo +
         "\n" +
 
         "📅 Contratación: " +
-        clienteEncontrado.fechaInicio +
+        cliente.fechaInicio +
         "\n" +
 
         "📅 Vencimiento: " +
-        clienteEncontrado.fechaVencimiento
+        cliente.fechaVencimiento
     );
-
-    return;
 }
 
-
 // ==========================================
-// COMANDO: ELIMINAR CLIENTE
-// Acepta:
-// elimina 6629876543
-// eliminar 6629876543
-// elimina a 6629876543
-// eliminar a 6629876543
+// COMANDO ELIMINAR
 // ==========================================
 
-if (
-    textoComando.startsWith("elimina ") ||
-    textoComando.startsWith("eliminar ")
+async function comandoEliminar(
+    client,
+    message
 ) {
 
-    const telefonoEliminar =
-        message.body
-            .replace(/^elimina(?:r)?\s+a?\s*/i, "")
-            .replace(/\D/g, "")
-            .slice(-10);
+    const telefono =
+        normalizarTelefono(
+            message.body
+                .replace(
+                    /^elimina(?:r)?\s+a?\s*/i,
+                    ""
+                )
+        );
 
-    if (telefonoEliminar.length !== 10) {
+    if (
+        telefono.length !== 10
+    ) {
 
         await client.sendText(
             message.from,
@@ -922,25 +886,23 @@ if (
         return;
     }
 
-    const clienteEliminar =
+    const cliente =
         await Cliente.findOne({
-            telefono: telefonoEliminar
+            telefono
         });
 
-    if (!clienteEliminar) {
+    if (!cliente) {
 
         await client.sendText(
             message.from,
-            "❌ *CLIENTE NO ENCONTRADO*\n\n" +
-            "No existe ningún cliente registrado con el teléfono:\n" +
-            telefonoEliminar
+            "❌ *CLIENTE NO ENCONTRADO*"
         );
 
         return;
     }
 
     await Cliente.deleteOne({
-        _id: clienteEliminar._id
+        _id: cliente._id
     });
 
     await client.sendText(
@@ -949,77 +911,47 @@ if (
         "🗑️ *CLIENTE ELIMINADO*\n\n" +
 
         "👤 Nombre: " +
-        clienteEliminar.nombre +
+        cliente.nombre +
         "\n" +
 
         "📱 Teléfono: " +
-        clienteEliminar.telefono +
+        cliente.telefono +
         "\n" +
 
         "📺 Servicio: " +
-        clienteEliminar.servicio +
-        "\n" +
-
-        "👥 Tipo: " +
-        clienteEliminar.tipo +
-        "\n\n" +
-
-        "El cliente fue eliminado correctamente."
+        cliente.servicio
     );
 
     console.log(
-        "Cliente eliminado:",
-        telefonoEliminar
+        "🗑️ Cliente eliminado:",
+        telefono
     );
-
-    return;
 }
 
-
 // ==========================================
-// COMANDO: CLIENTES QUE VENCEN MAÑANA
+// COMANDO VENCE MAÑANA
 // ==========================================
 
-if (
-    textoComando === "vence mañana" ||
-    textoComando === "vence manana"
+async function comandoVenceManana(
+    client,
+    message
 ) {
 
-    const manana =
-        new Date();
-
-    manana.setHours(0, 0, 0, 0);
-
-    manana.setDate(
-        manana.getDate() + 1
-    );
-
-    const anio =
-        manana.getFullYear();
-
-    const mes =
-        String(
-            manana.getMonth() + 1
-        ).padStart(2, "0");
-
-    const dia =
-        String(
-            manana.getDate()
-        ).padStart(2, "0");
-
     const fechaManana =
-        `${anio}-${mes}-${dia}`;
+        obtenerFechaManana();
 
-    const clientesManana =
+    const clientes =
         await Cliente.find({
-            fechaVencimiento: fechaManana
+            fechaVencimiento:
+                fechaManana
         });
 
-    if (clientesManana.length === 0) {
+    if (
+        clientes.length === 0
+    ) {
 
         await client.sendText(
             message.from,
-
             "📅 *CLIENTES QUE VENCEN MAÑANA*\n\n" +
             "No hay clientes que venzan mañana."
         );
@@ -1027,13 +959,13 @@ if (
         return;
     }
 
-    let lista =
+    let respuesta =
         "📅 *CLIENTES QUE VENCEN MAÑANA*\n\n";
 
-    clientesManana.forEach(
+    clientes.forEach(
         (cliente, indice) => {
 
-            lista +=
+            respuesta +=
                 `${indice + 1}. 👤 ${cliente.nombre}\n` +
                 `📱 ${cliente.telefono}\n` +
                 `📺 ${cliente.servicio}\n` +
@@ -1042,55 +974,36 @@ if (
         }
     );
 
-    lista +=
-        `Total: ${clientesManana.length} cliente(s).`;
+    respuesta +=
+        `Total: ${clientes.length} cliente(s).`;
 
     await client.sendText(
         message.from,
-        lista
+        respuesta
     );
-
-    return;
 }
+
 // ==========================================
-// COMANDO: ENVIAR RECORDATORIOS
+// COMANDO RECORDATORIOS
 // ==========================================
 
-if (
-    textoComando === "enviar recordatorio" ||
-    textoComando === "enviar recordatorios"
+async function comandoRecordatorios(
+    client,
+    message
 ) {
 
-    const manana = new Date();
-
-    manana.setHours(0, 0, 0, 0);
-
-    manana.setDate(
-        manana.getDate() + 1
-    );
-
-    const anio =
-        manana.getFullYear();
-
-    const mes =
-        String(
-            manana.getMonth() + 1
-        ).padStart(2, "0");
-
-    const dia =
-        String(
-            manana.getDate()
-        ).padStart(2, "0");
-
     const fechaManana =
-        `${anio}-${mes}-${dia}`;
+        obtenerFechaManana();
 
-    const clientesManana =
+    const clientes =
         await Cliente.find({
-            fechaVencimiento: fechaManana
+            fechaVencimiento:
+                fechaManana
         });
 
-    if (clientesManana.length === 0) {
+    if (
+        clientes.length === 0
+    ) {
 
         await client.sendText(
             message.from,
@@ -1103,456 +1016,626 @@ if (
 
     let enviados = 0;
     let errores = 0;
-for (const cliente of clientesManana) {
 
-    try {
-
-        const numeroCliente =
-            String(cliente.telefono)
-                .replace(/\D/g, "")
-                .slice(-10);
-
-        if (numeroCliente.length !== 10) {
-
-            console.log(
-                "Teléfono inválido:",
-                cliente.telefono
-            );
-
-            errores++;
-
-            continue;
-        }
-
-        console.log(
-            "Buscando contacto:",
-            numeroCliente
-        );
-
-        const idNumero =
-            numeroCliente + "@c.us";
-
-        // ==========================================
-        // VERIFICAR NÚMERO EN WHATSAPP
-        // ==========================================
-
-        const contacto =
-            await client.checkNumberStatus(
-                idNumero
-            );
-
-        console.log(
-            "Resultado contacto:",
-            contacto
-        );
-
-        if (
-            !contacto ||
-            contacto.status !== 200 ||
-            !contacto.numberExists
-        ) {
-
-            console.log(
-                "Número no disponible en WhatsApp:",
-                numeroCliente
-            );
-
-            errores++;
-
-            continue;
-        }
-
-        // ==========================================
-        // OBTENER ID REAL DEL CONTACTO
-        // ==========================================
-
-        let idContacto =
-            idNumero;
-
-        if (
-            contacto.id &&
-            contacto.id._serialized
-        ) {
-
-            idContacto =
-                contacto.id._serialized;
-        }
-
-        console.log(
-            "ID inicial:",
-            idContacto
-        );
-
-        // ==========================================
-        // INTENTAR OBTENER CHAT
-        // ==========================================
+    for (
+        const cliente
+        of clientes
+    ) {
 
         try {
 
-            const chat =
-                await client.getChatById(
-                    idContacto
+            const id =
+                crearIdWhatsApp(
+                    cliente.telefono
                 );
 
-            console.log(
-                "Chat encontrado:",
-                chat &&
-                chat.id
-                    ? chat.id
-                    : null
-            );
+            if (!id) {
 
-            if (
-                chat &&
-                chat.id &&
-                chat.id._serialized
-            ) {
+                errores++;
 
-                idContacto =
-                    chat.id._serialized;
-
-                console.log(
-                    "ID final del chat:",
-                    idContacto
-                );
+                continue;
             }
 
-        } catch (errorChat) {
+            const mensaje =
 
-            console.log(
-                "No se pudo obtener chat con ID:",
-                idContacto
+                "🔔 *RECORDATORIO DE RENOVACIÓN*\n\n" +
+
+                "Hola " +
+                cliente.nombre +
+                " 👋\n\n" +
+
+                "Tu servicio de *" +
+                cliente.servicio +
+                "* vence mañana.\n\n" +
+
+                "📅 Fecha de vencimiento: " +
+                cliente.fechaVencimiento +
+                "\n\n" +
+
+                "Si deseas renovar tu servicio, " +
+                "por favor comunícate con " +
+                "Plataformas Streaming Araiza.\n\n" +
+
+                "¡Gracias por tu preferencia! 🙌";
+
+            await client.sendText(
+                id,
+                mensaje
             );
 
+            enviados++;
+
             console.log(
-                "Detalle:",
-                errorChat.message
+                "✅ Recordatorio enviado:",
+                cliente.telefono
+            );
+
+        } catch (error) {
+
+            errores++;
+
+            console.error(
+                "❌ Error enviando recordatorio:",
+                cliente.telefono
+            );
+
+            console.error(
+                error.message
             );
         }
-
-        // ==========================================
-        // CREAR MENSAJE
-        // ==========================================
-
-        const mensajeRecordatorio =
-
-            "🔔 *RECORDATORIO DE RENOVACIÓN*\n\n" +
-
-            "Hola " +
-            cliente.nombre +
-            " 👋\n\n" +
-
-            "Tu servicio de *" +
-            cliente.servicio +
-            "* vence mañana.\n\n" +
-
-            "📅 Fecha de vencimiento: " +
-            cliente.fechaVencimiento +
-            "\n\n" +
-
-            "Si deseas renovar tu servicio, " +
-            "por favor comunícate con " +
-            "Plataformas Streaming Araiza.\n\n" +
-
-            "¡Gracias por tu preferencia! 🙌";
-
-        // ==========================================
-        // ENVIAR RECORDATORIO
-        // ==========================================
-
-        console.log(
-            "Enviando recordatorio a:",
-            idContacto
-        );
-
-        await client.sendText(
-            idContacto,
-            mensajeRecordatorio
-        );
-
-        enviados++;
-
-        console.log(
-            "Recordatorio enviado correctamente a:",
-            numeroCliente
-        );
-
-    } catch (errorEnvio) {
-
-        errores++;
-
-        console.error(
-            "Error enviando recordatorio a:",
-            cliente.telefono
-        );
-
-        console.error(
-            errorEnvio
-        );
     }
-}
-
-// ==========================================
-// RESUMEN
-// ==========================================
-
-await client.sendText(
-
-    message.from,
-
-    "✅ *RECORDATORIOS PROCESADOS*\n\n" +
-
-    "📨 Enviados: " +
-    enviados +
-    "\n\n" +
-
-    "❌ Con error: " +
-    errores +
-    "\n\n" +
-
-    "📋 Total: " +
-    clientesManana.length
-
-);
-
-return;
-
-}
-
-
-                // ==========================================
-                // EXTRAER DATOS
-                // ==========================================
-
-                const cliente =
-                    extraerCliente(
-                        message.body
-                    );
-
-                console.log(
-                    "Datos detectados:",
-                    cliente
-                );
-
-                // ==========================================
-                // VALIDAR DATOS OBLIGATORIOS
-                // ==========================================
-
-                const faltantes = [];
-
-                if (!cliente.nombre) {
-                    faltantes.push("nombre");
-                }
-
-                if (!cliente.telefono) {
-                    faltantes.push("telefono");
-                }
-
-                if (!cliente.servicio) {
-                    faltantes.push("servicio");
-                }
-
-                if (!cliente.tipo) {
-                    faltantes.push("tipo");
-                }
-
-                if (!cliente.fechaInicio) {
-                    faltantes.push(
-                        "fecha de contratacion"
-                    );
-                }
-
-                if (!cliente.fechaVencimiento) {
-                    faltantes.push(
-                        "fecha de vencimiento"
-                    );
-                }
-// ==========================================
-// VALIDAR TELÉFONO
-// ==========================================
-
-let telefonoLimpio = String(cliente.telefono || "")
-    .replace(/\D/g, "");
-
-// Si viene con código de México 52, quitarlo
-if (telefonoLimpio.startsWith("52") && telefonoLimpio.length === 12) {
-    telefonoLimpio = telefonoLimpio.substring(2);
-}
-
-// Aceptar cualquier lada de México
-if (telefonoLimpio.length !== 10) {
-
-    console.log(
-        "Teléfono inválido:",
-        telefonoLimpio
-    );
-
-    faltantes.push("teléfono (debe tener 10 dígitos)");
-
-}
-    
-// ==========================================
-// SI FALTAN DATOS
-// ==========================================
-
-if (faltantes.length > 0) {
-
-    console.log(
-        "Faltan datos:",
-        faltantes
-    );
-
-    const datosFaltantes =
-        faltantes
-            .map(dato => "• " + dato)
-            .join("\n");
 
     await client.sendText(
         message.from,
 
-        "👋 ¡Hola!\n\n" +
-        "📋 Gracias por enviar la información.\n\n" +
-        "Para poder registrar correctamente su servicio, " +
-        "necesitamos algunos datos adicionales.\n\n" +
-        "⚠️ Datos faltantes:\n" +
-        datosFaltantes +
+        "✅ *RECORDATORIOS PROCESADOS*\n\n" +
+
+        "📨 Enviados: " +
+        enviados +
         "\n\n" +
-        "📝 Por favor, envíe la información faltante. " +
-        "Puede escribirla en el formato que le resulte más cómodo.\n\n" +
-        "✅ En cuanto recibamos todos los datos completos, " +
-        "procederemos con el registro.\n\n" +
-     "🙏 ¡Gracias por su preferencia!\n\n" +
-        "📺 Plataformas Streaming Araiza"
-    );
 
-    return;
-}   
-// ==========================================
-// BUSCAR CLIENTE EXISTENTE
-// ==========================================
+        "❌ Con error: " +
+        errores +
+        "\n\n" +
 
-const clienteExistente =
-    await Cliente.findOne({
-        telefono: cliente.telefono
-    });
-
-// ==========================================
-// ACTUALIZAR SI YA EXISTE
-// ==========================================
-
-if (clienteExistente) {
-
-    clienteExistente.nombre =
-        cliente.nombre;
-
-    clienteExistente.servicio =
-        cliente.servicio;
-
-    clienteExistente.tipo =
-        cliente.tipo;
-
-    clienteExistente.fechaInicio =
-        cliente.fechaInicio;
-
-    clienteExistente.fechaVencimiento =
-        cliente.fechaVencimiento;
-
-    await clienteExistente.save();
-
-    console.log(
-        "Cliente actualizado:",
-        clienteExistente._id
-    );
-
-} else {
-
-    // ==========================================
-    // CREAR NUEVO CLIENTE
-    // ==========================================
-
-    const nuevoCliente =
-        new Cliente(cliente);
-
-    const guardado =
-        await nuevoCliente.save();
-
-    console.log(
-        "Cliente guardado:",
-        guardado._id
+        "📋 Total: " +
+        clientes.length
     );
 }
 
 // ==========================================
-// CONFIRMACIÓN AL CLIENTE
+// PROCESAR MENSAJE DEL CLIENTE
 // ==========================================
 
-await client.sendText(
-    message.from,
+async function procesarMensaje(
+    client,
+    message
+) {
 
-    "✅ ¡DATOS REGISTRADOS CORRECTAMENTE!\n\n" +
+    if (
+        !message.body
+    ) {
+        return;
+    }
 
-    "👤 Cliente: " +
-    cliente.nombre +
-    "\n\n" +
-
- "📱 Telfono: " +
-    cliente.telefono +
-    "\n" +
-
-    "📺 Servicio: " +
-    cliente.servicio +
-    "\n" +
-
-    "👥 Tipo de cuenta: " +
-    cliente.tipo +
-    "\n" +
-
-    "📅 Fecha de contratación: " +
-    cliente.fechaInicio +
-    "\n" +
-
-    "📆 Fecha de vencimiento: " +
-    cliente.fechaVencimiento +
-    "\n\n" +
-
-    "⏰ Un día antes de la fecha de vencimiento " +
-    "recibirá un recordatorio para renovar su servicio.\n\n" +
-
-    "😊 Esperamos que disfrute de su servicio.\n\n" +
-
-    "🛠️ Si tiene cualquier inconveniente o necesita asistencia, " +
-    "puede comunicarse con Plataformas Streaming Araiza.\n\n" +
-
-    "🙏 ¡Gracias por su preferencia!\n\n" +
-
-    "📺✨ Plataformas Streaming Araiza"
-);
-
-console.log(
-    "✅ Confirmación enviada a:",
-    message.from
-);
-
-            }catch (error) {
-
-                console.error(
-                    "Error procesando mensaje:"
-                );
-
-                console.error(error);
-            }
-
-        });
-
-    })
-
-    .catch((error) => {
-
-        console.error(
-            "Error al conectar WhatsApp:"
+    const texto =
+        limpiarTexto(
+            message.body
         );
 
-        console.error(error);
-    });
+    const comando =
+        normalizar(texto);
 
+    console.log(
+        "=========================================="
+    );
 
+    console.log(
+        "📩 MENSAJE RECIBIDO"
+    );
+
+    console.log(
+        "De:",
+        message.from
+    );
+
+    console.log(
+        "Mensaje:",
+        texto
+    );
+
+    console.log(
+        "=========================================="
+    );
+
+    // ==========================================
+    // GUARDAR MENSAJE
+    // ==========================================
+
+    try {
+
+        const mensaje =
+            new Mensaje({
+
+                telefono:
+                    message.from,
+
+                mensaje:
+                    texto
+
+            });
+
+        await mensaje.save();
+
+    } catch (error) {
+
+        console.error(
+            "❌ Error guardando mensaje:",
+            error.message
+        );
+    }
+
+    // ==========================================
+    // COMANDOS ADMINISTRATIVOS
+    // ==========================================
+
+    if (
+        comando.startsWith("buscar ")
+    ) {
+
+        await comandoBuscar(
+            client,
+            message
+        );
+
+        return;
+    }
+
+    if (
+        comando.startsWith("elimina ") ||
+        comando.startsWith("eliminar ")
+    ) {
+
+        await comandoEliminar(
+            client,
+            message
+        );
+
+        return;
+    }
+
+    if (
+        comando === "vence manana" ||
+        comando === "vence mañana"
+    ) {
+
+        await comandoVenceManana(
+            client,
+            message
+        );
+
+        return;
+    }
+
+    if (
+        comando === "enviar recordatorio" ||
+        comando === "enviar recordatorios"
+    ) {
+
+        await comandoRecordatorios(
+            client,
+            message
+        );
+
+        return;
+    }
+
+    // ==========================================
+    // EXTRAER CLIENTE
+    // ==========================================
+
+    const cliente =
+        extraerCliente(texto);
+
+    console.log(
+        "📋 Datos detectados:",
+        cliente
+    );
+
+    // ==========================================
+    // VALIDAR
+    // ==========================================
+
+    const faltantes = [];
+
+    if (!cliente.nombre) {
+        faltantes.push("nombre");
+    }
+
+    if (!cliente.telefono) {
+        faltantes.push("teléfono");
+    }
+
+    if (!cliente.servicio) {
+        faltantes.push("servicio");
+    }
+
+    if (!cliente.tipo) {
+        faltantes.push("tipo de cuenta");
+    }
+
+    if (!cliente.fechaInicio) {
+        faltantes.push(
+            "fecha de contratación"
+        );
+    }
+
+    if (!cliente.fechaVencimiento) {
+        faltantes.push(
+            "fecha de vencimiento"
+        );
+    }
+
+    if (
+        cliente.telefono.length !== 10
+    ) {
+
+        if (
+            !faltantes.includes(
+                "teléfono"
+            )
+        ) {
+
+            faltantes.push(
+                "teléfono (10 dígitos)"
+            );
+        }
+    }
+
+    // ==========================================
+    // DATOS INCOMPLETOS
+    // ==========================================
+
+    if (
+        faltantes.length > 0
+    ) {
+
+        const lista =
+            faltantes
+                .map(
+                    dato =>
+                        "• " + dato
+                )
+                .join("\n");
+
+        await client.sendText(
+            message.from,
+
+            "👋 ¡Hola!\n\n" +
+
+            "📋 Gracias por enviar la información.\n\n" +
+
+            "Para registrar correctamente el servicio " +
+            "faltan los siguientes datos:\n\n" +
+
+            "⚠️ *Datos faltantes:*\n" +
+
+            lista +
+
+            "\n\n" +
+
+            "📝 Puedes enviar la información completa " +
+            "en un solo mensaje.\n\n" +
+
+            "Ejemplo:\n\n" +
+
+            "Nombre: Juan Pérez\n" +
+            "Teléfono: 6621234567\n" +
+            "Servicio: Netflix\n" +
+            "Tipo: Perfil\n" +
+            "Fecha de contratación: 11/08/2026\n" +
+            "Fecha de vencimiento: 11/09/2026\n\n" +
+
+            "📺 *Plataformas Streaming Araiza*"
+        );
+
+        return;
+    }
+
+    // ==========================================
+    // BUSCAR CLIENTE EXISTENTE
+    // ==========================================
+
+    const clienteExistente =
+        await Cliente.findOne({
+            telefono:
+                cliente.telefono
+        });
+
+    // ==========================================
+    // ACTUALIZAR
+    // ==========================================
+
+    if (
+        clienteExistente
+    ) {
+
+        clienteExistente.nombre =
+            cliente.nombre;
+
+        clienteExistente.servicio =
+            cliente.servicio;
+
+        clienteExistente.tipo =
+            cliente.tipo;
+
+        clienteExistente.fechaInicio =
+            cliente.fechaInicio;
+
+        clienteExistente.fechaVencimiento =
+            cliente.fechaVencimiento;
+
+        await clienteExistente.save();
+
+        console.log(
+            "♻️ Cliente actualizado:",
+            cliente.telefono
+        );
+
+    } else {
+
+        // ==========================================
+        // CREAR CLIENTE
+        // ==========================================
+
+        const nuevoCliente =
+            new Cliente(cliente);
+
+        await nuevoCliente.save();
+
+        console.log(
+            "✅ Cliente nuevo guardado:",
+            cliente.telefono
+        );
+    }
+
+    // ==========================================
+    // CONFIRMACIÓN
+    // ==========================================
+
+    await client.sendText(
+        message.from,
+
+        "✅ *DATOS REGISTRADOS CORRECTAMENTE*\n\n" +
+
+        "👤 Cliente: " +
+        cliente.nombre +
+        "\n\n" +
+
+        "📱 Teléfono: " +
+        cliente.telefono +
+        "\n" +
+
+        "📺 Servicio: " +
+        cliente.servicio +
+        "\n" +
+
+        "👥 Tipo de cuenta: " +
+        cliente.tipo +
+        "\n" +
+
+        "📅 Fecha de contratación: " +
+        cliente.fechaInicio +
+        "\n" +
+
+        "📆 Fecha de vencimiento: " +
+        cliente.fechaVencimiento +
+        "\n\n" +
+
+        "⏰ Un día antes de la fecha de vencimiento " +
+        "recibirá un recordatorio para renovar su servicio.\n\n" +
+
+        "🛠️ Si necesita asistencia, " +
+        "puede comunicarse con Plataformas Streaming Araiza.\n\n" +
+
+        "🙏 ¡Gracias por su preferencia!\n\n" +
+
+        "📺✨ *Plataformas Streaming Araiza*"
+    );
+
+    console.log(
+        "✅ Confirmación enviada a:",
+        message.from
+    );
+}
+
+// ==========================================
+// INICIAR WHATSAPP
+// ==========================================
+
+async function iniciarWhatsApp() {
+
+    await conectarMongoDB();
+
+    console.log(
+        "=========================================="
+    );
+
+    console.log(
+        "INICIANDO WPPConnect..."
+    );
+
+    console.log(
+        "=========================================="
+    );
+
+    try {
+
+        const client =
+            await wppconnect
+.create({
+
+    session: "sistema",
+
+    puppeteerOptions: {
+
+        executablePath:
+            "/opt/render/.cache/puppeteer/chrome/linux-148.0.7778.97/chrome-linux64/chrome",
+
+        args: [
+            "--no-sandbox",
+            "--disable-setuid-sandbox",
+            "--disable-dev-shm-usage",
+            "--disable-gpu",
+            "--no-zygote"
+        ]
+
+    },
+
+    catchQR: (base64Qr, asciiQR) => {
+
+        console.log(
+            "\n========== ESCANEA ESTE QR ==========\n"
+        );
+
+        console.log(asciiQR);
+
+        console.log(
+            "\n=====================================\n"
+        );
+    },
+
+    statusFind: (statusSession, session) => {
+
+        console.log(
+            "Estado:",
+            statusSession,
+            "| Sesión:",
+            session
+        );
+    },
+
+    headless: true,
+
+    logQR: true
+
+}
+        );
+
+        console.log(
+            "📱 El sistema ya puede recibir mensajes."
+        );
+
+        console.log(
+            "📂 MongoDB:",
+            mongoose.connection.name
+        );
+
+        console.log(
+            "=========================================="
+        );
+
+        // ==========================================
+        // RECIBIR MENSAJES
+        // ==========================================
+
+        client.onMessage(
+            async message => {
+
+                try {
+
+                    // Ignorar mensajes propios
+                    if (
+                        message.fromMe
+                    ) {
+
+                        return;
+                    }
+
+                    await procesarMensaje(
+                        client,
+                        message
+                    );
+
+                } catch (error) {
+
+                    console.error(
+                        "❌ Error procesando mensaje:"
+                    );
+
+                    console.error(
+                        error
+                    );
+                }
+            }
+        );
+
+    } catch (error) {
+
+        console.error(
+            "❌ Error iniciando WPPConnect:"
+        );
+
+        console.error(
+            error
+        );
+
+        process.exit(1);
+    }
+}
+
+// ==========================================
+// INICIAR
+// ==========================================
+
+iniciarWhatsApp();
+
+// ==========================================
+// CIERRE SEGURO
+// ==========================================
+
+process.on(
+    "SIGINT",
+    async () => {
+
+        console.log(
+            "\nCerrando WhatsApp..."
+        );
+
+        try {
+
+            await mongoose.connection.close();
+
+        } catch (error) {
+
+            console.error(
+                error.message
+            );
+        }
+
+        process.exit(0);
+    }
+);
+
+process.on(
+    "SIGTERM",
+    async () => {
+
+        console.log(
+            "\nCerrando sistema..."
+        );
+
+        try {
+
+            await mongoose.connection.close();
+
+        } catch (error) {
+
+            console.error(
+                error.message
+            );
+        }
+
+        process.exit(0);
+    }
+);
